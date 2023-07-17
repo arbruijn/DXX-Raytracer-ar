@@ -540,14 +540,14 @@ void toggle_cockpit()
 		case CM_FULL_COCKPIT:
 			new_mode = CM_STATUS_BAR;
 			break;
-        case CM_STATUS_BAR:
+		case CM_STATUS_BAR:
 #ifdef RT_DX12
-            new_mode = CM_MODEL_3D;
-            break;
+			new_mode = CM_MODEL_3D;
+			break;
         case CM_MODEL_3D:
 #endif
-            new_mode = CM_FULL_SCREEN;
-            break;
+			new_mode = CM_FULL_SCREEN;
+			break;
 		case CM_FULL_SCREEN:
 			new_mode = CM_FULL_COCKPIT;
 			if(PlayerCfg.DisableCockpit) {

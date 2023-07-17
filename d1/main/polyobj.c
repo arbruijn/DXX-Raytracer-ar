@@ -591,7 +591,7 @@ void draw_polygon_model(_RT_DRAW_POLY vms_vector* pos, vms_matrix* orient, vms_a
 				vm_vec_negate(&ofs);
 				g3_start_instance_matrix(&ofs, NULL);
 #ifndef RT_DX12
-				g3_draw_polygon_model(&po->model_data[po->submodel_ptrs[i]], texture_list, anim_angles, light, glow_values);
+				g3_draw_polygon_model(&po->model_data[po->submodel_ptrs[i]],texture_list,anim_angles,light,glow_values);
 #else
 				// Get matrix from local position offset
 				const vms_vector offset_vms = *pos;

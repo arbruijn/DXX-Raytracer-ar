@@ -767,7 +767,7 @@ void render_segment(int segnum)
 	segment *seg = &Segments[segnum];
 	g3s_codes cc;
 #ifndef RT_DX12
-	int sn;
+	int			sn;
 #endif
 
 	Assert(segnum != -1 && segnum <= Highest_segment_index);
