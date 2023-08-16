@@ -356,6 +356,8 @@ ssize_t dxx_sendto(int sockfd, const void *msg, int len, unsigned int flags, con
 ssize_t dxx_recvfrom(int sockfd, void *buf, int len, unsigned int flags, struct sockaddr *from, socklen_t *fromlen)
 {
 	ssize_t rv = recvfrom(sockfd, buf, len, flags, from, fromlen);
+	if (rv == -1)
+		return -1;
 
 	net_log_log(0, buf, rv, from, *fromlen); 
 
@@ -483,6 +485,8 @@ int udp_open_socket(int socknum, int port)
 		return -1;
 	}
 	(void)setsockopt( UDP_Socket[socknum], SOL_SOCKET, SO_BROADCAST, (const char *) &bcast, sizeof(bcast) );
+	u_long mode = 1;  // 1 to enable non-blocking socket
+	ioctlsocket(UDP_Socket[socknum], FIONBIO, &mode);
 #else
 	struct addrinfo hints,*res,*sres;
 	int err,ai_family_;
@@ -577,7 +581,7 @@ int udp_receive_packet(int socknum, ubyte *text, int len, struct _sockaddr *send
 	if (UDP_Socket[socknum] == -1)
 		return -1;
 
-	if (udp_general_packet_ready(socknum))
+	if (1) //udp_general_packet_ready(socknum))
 	{
 		msglen = dxx_recvfrom (UDP_Socket[socknum], text, len, 0, (struct sockaddr *)sender_addr, &clen);
 

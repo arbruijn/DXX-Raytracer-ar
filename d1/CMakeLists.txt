@@ -5,11 +5,11 @@ cmake_minimum_required (VERSION 3.13)
 project(descent1)
 add_compile_definitions(PUBLIC  
 HAVE_STRUCT_TIMEVAL
-IPv6
 NETWORK
 NO_ASM
 WINDOWS_IGNORE_PACKING_MISMATCH 
-USE_TRACKER)
+USE_TRACKER
+USE_UDP)
 
 if(${GRAPHICS_API} STREQUAL "DirectX12")
 	#Raytracing interface Source code
