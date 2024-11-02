@@ -9,7 +9,8 @@ IPv6
 NETWORK
 NO_ASM
 WINDOWS_IGNORE_PACKING_MISMATCH 
-USE_TRACKER)
+USE_TRACKER
+USE_SDLMIXER)
 
 if(${GRAPHICS_API} STREQUAL "DirectX12")
 	#Raytracing interface Source code
@@ -104,6 +105,9 @@ target_sources(descent1 PRIVATE
 	"arch/sdl/window.c"
 	"arch/sdl/digi.c"
 	"arch/sdl/digi_audio.c"
+	"arch/sdl/digi_mixer.c"
+	"arch/sdl/digi_mixer_music.c"
+	"arch/sdl/jukebox.c"
 	"iff/iff.c"
 	"main/ai.c"
 	"main/aipath.c"
@@ -208,6 +212,7 @@ target_include_directories(descent1 PRIVATE
 "../sdl-master"
 "../sdl-master/sdl"
 "../sdl-master/sdl/include"
+"../sdl-mixer-master"
 "../physfs-main/src"
 $ENV{RT_EXT_CODE_DIR}
 )
@@ -216,6 +221,7 @@ target_link_libraries(descent1
 physfs-static
 sdlmain
 sdl
+SDL_mixer_master
 dxguid
 Winmm
 Ws2_32
