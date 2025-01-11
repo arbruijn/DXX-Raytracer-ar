@@ -524,6 +524,10 @@ void RT_VertexFixToFloat_Fan(RT_TriangleBuffer *buf, int nv, g3s_point** pointli
 
     first_triangle.material_edge_index = texture_id;
 
+	first_triangle.portal = false;
+	first_triangle.segment = -1;
+	first_triangle.segment_adjacent = -1;
+
 	int start_count = buf->count;
 
 	for (int point_index = 1; point_index + 1 < nv; point_index++)
@@ -545,6 +549,10 @@ void RT_VertexFixToFloat_Fan(RT_TriangleBuffer *buf, int nv, g3s_point** pointli
 		triangle.uv2.y = f2fl(pointlist[point_index + 1]->p3_v);
 
         triangle.material_edge_index = texture_id;
+
+		triangle.portal = false;
+		triangle.segment = -1;
+		triangle.segment_adjacent = -1;
 		
 		//Now do the normals
 		RT_Vec3 p10 = RT_Vec3Normalize(RT_Vec3Sub(triangle.pos1, triangle.pos0));

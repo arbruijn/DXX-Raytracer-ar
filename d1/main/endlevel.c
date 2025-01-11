@@ -1077,6 +1077,7 @@ void render_endlevel_frame(fix eye_offset)
 		.camera = &camera,
 		.render_height_override = 0,
 		.render_width_override = 0,
+		.render_segment = Viewer->segnum,
 	};
 	RT_BeginScene(&frame_settings);
 	RT_RaytraceSetSkyColors(RT_Vec3Make(0.5, 0.5, 0.5), RT_Vec3Make(0.5, 0.5, 0.5));

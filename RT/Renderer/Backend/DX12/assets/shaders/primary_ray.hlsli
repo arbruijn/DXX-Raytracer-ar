@@ -9,6 +9,9 @@ struct PrimaryRayPayload
     uint primitive_idx;
     float2 barycentrics;
     float hit_distance;
+    int num_portal_hits;
+    PortalHit portal_hits[128];
+    bool valid_hit;
 };
 
 void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_pos)
@@ -36,12 +39,35 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 		{
 			case CANDIDATE_NON_OPAQUE_TRIANGLE:
 			{
+                uint instance_idx = ray_query.CandidateInstanceIndex();
+                uint primitive_idx = ray_query.CandidatePrimitiveIndex();
+
+                InstanceData instance_data = g_instance_data_buffer[instance_idx];
+                RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
+                float hit_distance = ray_query.CandidateTriangleRayT();
+
+                // if triangle is portal add to list of portal hits (only do on first pass, we reuse the portal hit data in the event of a second pass.)
+                if (hit_triangle.portal)
+                {
+                    
+                    if (payload.num_portal_hits < 127)
+                    {
+                        payload.num_portal_hits++;
+                        payload.portal_hits[payload.num_portal_hits - 1 ].segment = hit_triangle.segment;
+                        payload.portal_hits[payload.num_portal_hits - 1 ].segment_adjacent = hit_triangle.segment_adjacent;
+                        payload.portal_hits[payload.num_portal_hits - 1 ].hit_distance = hit_distance;
+                        
+                    }
+                    
+                    break;  // always don't commit portal hits
+                }
+
 				Material hit_material;
 
 				// Check for transparency on hit candidate
 				if (!IsHitTransparent(
-					ray_query.CandidateInstanceIndex(),
-					ray_query.CandidatePrimitiveIndex(),
+					instance_idx,
+					primitive_idx,
 					ray_query.CandidateTriangleBarycentrics(),
 					pixel_pos,
 					hit_material
@@ -49,6 +75,20 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 				{
 					ray_query.CommitNonOpaqueTriangleHit();
 				}
+                else
+                {
+                    // count a transparent wall as a portal
+                    if (hit_triangle.segment != -1)
+                    {
+                        if (payload.num_portal_hits < 127)
+                        {
+                            payload.num_portal_hits++;
+                            payload.portal_hits[payload.num_portal_hits - 1 ].segment = hit_triangle.segment;
+                            payload.portal_hits[payload.num_portal_hits - 1 ].segment_adjacent = hit_triangle.segment_adjacent;
+                            payload.portal_hits[payload.num_portal_hits - 1 ].hit_distance = hit_distance;
+                        }
+                    }
+                }
 				break;
 			}
 		}
@@ -67,17 +107,75 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 	{
 		case COMMITTED_TRIANGLE_HIT:
 		{
-			// Triangle hit
-			payload.instance_idx = ray_query.CommittedInstanceIndex();
-			payload.primitive_idx = ray_query.CommittedPrimitiveIndex();
-			payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
-			payload.hit_distance = ray_query.CommittedRayT();
-			break;
+            float hit_distance = ray_query.CommittedRayT();
+
+            uint instance_idx = ray_query.CommittedInstanceIndex();
+            uint primitive_idx = ray_query.CommittedPrimitiveIndex();
+
+            InstanceData instance_data = g_instance_data_buffer[instance_idx];
+            RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
+            payload.valid_hit = true;
+
+            // if hit triangle is world geo (has segment) retrace the ray back to see if it passed through portals that lead to this triangle.  otherwise hit is invalid
+            if (hit_triangle.segment != -1)
+            {
+                
+                bool valid_hit = false;
+                int search_segment = hit_triangle.segment;
+                uint retrace_count = 0;
+
+                
+                while (retrace_count < 2)  // retracing back through 2 portals seems to be enough to rid most artifacts
+                {
+                    retrace_count++;
+
+                    // check if we have gotten back to the rays origin segment
+                    if (search_segment == payload.portal_hits[0].segment)
+                    {
+                        // we got back to origin, so hit is valid
+                        break;
+                    }
+
+                    bool found = false;
+
+                    // search the portal hits to see if we crossed a portal to get to the current search segment
+                    
+                    for (int search_index = 0; search_index < 127; search_index++)
+                    {
+                        if (payload.portal_hits[search_index].segment_adjacent == search_segment)
+                        {
+                            found = true;
+                            search_segment = payload.portal_hits[search_index].segment; // we'll continue the retrace with this segment on the next loop 
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                    {
+                        // we hit geometry that we didn't cross a portal for.
+                        payload.valid_hit = false;
+                        break;
+                    }
+
+                }
+                
+            }
+
+            if(payload.valid_hit)
+            { 
+                payload.instance_idx = instance_idx;
+                payload.primitive_idx = primitive_idx;
+                payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
+            }
+            payload.hit_distance = hit_distance;
+
+            break;
 		}
 		// We do not need this case because we initialize the values by default to be as if the ray missed
 		case COMMITTED_NOTHING:
 		{
 			// Missed
+            payload.valid_hit = true;   // a miss is still a valid result
 			break;
 		}
 	}

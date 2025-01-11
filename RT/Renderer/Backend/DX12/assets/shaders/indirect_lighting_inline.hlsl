@@ -164,6 +164,12 @@ void IndirectLightingInline(COMPUTE_ARGS)
 
 			// Set up geometry input for primary ray trace
 			PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
+			ray_payload.num_portal_hits = 1;
+			ray_payload.portal_hits[0].segment = hit_triangle.segment;	// put starting segment as first portal hit
+			ray_payload.portal_hits[0].segment_adjacent = -1;	// not an actual portal, so it doesn't have an adjacent
+			ray_payload.portal_hits[0].hit_distance = 0.0;
+			ray_payload.valid_hit = false;
+
 			RayDesc ray   = (RayDesc)0;
 			ray.Origin    = gbuf_world_p + 0.01f * gbuf_normal;
 			ray.Direction = bounce_direction;
@@ -171,7 +177,20 @@ void IndirectLightingInline(COMPUTE_ARGS)
 			ray.TMax      = RT_RAY_T_MAX;
 
 			// Trace the primary ray
-			TracePrimaryRay(ray, ray_payload, pixel_pos);
+			int count = 0;
+
+			while (!ray_payload.valid_hit && count < 3)
+			{
+				TracePrimaryRay(ray, ray_payload, pixel_pos);
+
+				if (!ray_payload.valid_hit)
+				{
+					// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
+					ray.TMin = ray_payload.hit_distance + 0.01; // offset to avoid re-intersect
+				}
+
+				count++;
+			}
 
 			// Set up geometry output from primary ray trace and set non-zero defaults where necessary
 			HitGeometry geo = (HitGeometry)0;

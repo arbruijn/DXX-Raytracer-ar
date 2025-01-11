@@ -41,7 +41,14 @@ void PrimaryRaygen()
     // Trace the primary ray
     RayDesc ray = GetRayDesc(dispatch_idx, dispatch_dim);
     PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-    TracePrimaryRay(ray, ray_payload, dispatch_idx);
+    ray_payload.segment = g_global_cb.ray_segment;  // what cube/segment does ray originate in
+    ray_payload.missed = false;
+    ray_payload.hit_geo = false;
+
+    while (!ray_payload.missed || !ray_payload.hit_geo)
+    {
+        TracePrimaryRay(ray, ray_payload, dispatch_idx);
+    }
 
     // Set up geometry output from primary ray trace and set non-zero defaults where necessary
     HitGeometry geo = (HitGeometry)0;
@@ -130,17 +137,48 @@ void PrimaryRaygen()
 [shader("closesthit")]
 void PrimaryClosesthit(inout PrimaryRayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    payload.instance_idx = InstanceIndex();
-    payload.primitive_idx = PrimitiveIndex();
-    payload.barycentrics = attr.barycentrics;
-    payload.hit_distance = RayTCurrent();
+    uint instance_idx = InstanceIndex();
+    uint primitive_idx = PrimitiveIndex();
+
+    InstanceData instance_data = g_instance_data_buffer[instance_idx];
+    RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
+
+    if (hit_triangle.portal)
+    {
+        payload.segment = hit_triangle.segment_adjacent;    // change search segment to next segment
+        payload.missed = false;
+        payload.hit_geo = false;
+    }
+    else
+    {
+        payload.missed = false;
+        payload.hit_geo = true;
+
+        payload.instance_idx = instance_idx;
+        payload.primitive_idx = primitive_idx;
+        payload.barycentrics = attr.barycentrics;
+        payload.hit_distance = RayTCurrent();
+    }   
 }
 
 [shader("anyhit")]
 void PrimaryAnyhit(inout PrimaryRayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
+    uint instance_idx = InstanceIndex();
+    uint primitive_idx = PrimitiveIndex();
+
+    InstanceData instance_data = g_instance_data_buffer[instance_idx];
+    RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
+
+    // if triangle is level geo and not in the current segment
+    if (hit_triangle.segment != -1 && hit_triangle.segment != payload.segment)
+    {
+        IgnoreHit();
+    }
+
     Material hit_material;
-    if (IsHitTransparent(InstanceIndex(), PrimitiveIndex(), attr.barycentrics, DispatchRaysIndex().xy, hit_material))
+    // if not a portal and is transparent
+    if (!hit_triangle.portal || IsHitTransparent(instance_idx, primitive_idx, attr.barycentrics, DispatchRaysIndex().xy, hit_material))
     {
         IgnoreHit();
     }
@@ -153,6 +191,7 @@ void PrimaryMiss(inout PrimaryRayPayload payload)
     payload.primitive_idx = ~0;
     payload.barycentrics = float2(0, 0);
     payload.hit_distance = RT_RAY_T_MAX;
+    payload.missed = true;
 }
 
 #endif /* PRIMARY_RAY_HLSL */

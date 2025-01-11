@@ -204,6 +204,11 @@ typedef struct RT_Triangle
 
 	uint32_t color;
 	uint32_t material_edge_index;
+	
+	// level geometry
+	bool portal;				// is this triangle a portal to another segment
+	int32_t segment;			// what segment does this triangle belong too (if world geo)
+	int32_t segment_adjacent;	// if this is a portal what segment does it lead to
 } RT_Triangle;
 
 typedef struct RT_UploadMeshParams
@@ -276,6 +281,7 @@ typedef struct RT_SceneSettings
 	uint32_t render_width_override;
 	uint32_t render_height_override;
 	bool render_blit;
+	int32_t render_segment;
 } RT_SceneSettings;
 
 typedef struct RT_RasterTrianglesParams

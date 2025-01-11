@@ -10,9 +10,31 @@ void PrimaryRayInline(COMPUTE_ARGS)
 	// ---------------------------------------------------------------------------------------------------------------
 	// Set up the primary ray and its payload, then trace the ray
 
+	// Trace the primary ray
 	RayDesc ray = GetRayDesc(pixel_pos, g_global_cb.render_dim);
-	PrimaryRayPayload payload = (PrimaryRayPayload)0;
-	TracePrimaryRay(ray, payload, pixel_pos);
+	PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
+	ray_payload.num_portal_hits = 1;
+	ray_payload.portal_hits[0].segment = g_global_cb.ray_segment;	// put starting segment as first portal hit
+	ray_payload.portal_hits[0].segment_adjacent = -1;	// not an actual portal, so it doesn't have an adjacent
+	ray_payload.portal_hits[0].hit_distance = 0.0;
+	ray_payload.valid_hit = false;
+	
+	int count = 0;
+
+	while (!ray_payload.valid_hit && count < 3)
+	{
+		TracePrimaryRay(ray, ray_payload, pixel_pos);
+
+		if (!ray_payload.valid_hit)
+		{
+			// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
+			ray.TMin = ray_payload.hit_distance + 0.01; // offset to avoid re-intersect
+		}
+
+		count++;
+	}
+
+	
 	
 	// ---------------------------------------------------------------------------------------------------------------
 	// Get the geometry data from the primary ray hit
@@ -21,14 +43,14 @@ void PrimaryRayInline(COMPUTE_ARGS)
 	geo.depth = RT_RAY_T_MAX;
 
 	GetHitGeometryFromRay(ray,
-		payload.instance_idx, payload.primitive_idx, payload.barycentrics, payload.hit_distance,
+		ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
 		0, pixel_pos, g_global_cb.render_dim, geo
 	);
 
 	// ---------------------------------------------------------------------------------------------------------------
 	// Evaluate G-buffer motion vectors
 
-    float3 geo_world_p = ReconstructWorldPosition(g_global_cb.view_inv, ray.Direction, payload.hit_distance);
+    float3 geo_world_p = ReconstructWorldPosition(g_global_cb.view_inv, ray.Direction, ray_payload.hit_distance);
 	float3x4 world_to_object = float3x4(geo.instance_data.world_to_object[0],
 										geo.instance_data.world_to_object[1],
 										geo.instance_data.world_to_object[2]);

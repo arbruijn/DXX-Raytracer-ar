@@ -92,6 +92,9 @@ struct GlobalConstantBuffer
 
 	// Viewport offset, effectively offsets the center of the viewport after projecting
 	float    viewport_offset_y;
+
+	// What segment/cube is viewer in
+	int ray_segment;
 };
 
 struct GenMipMapSettings

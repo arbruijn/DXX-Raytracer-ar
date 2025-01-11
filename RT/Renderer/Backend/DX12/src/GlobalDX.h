@@ -459,6 +459,8 @@ namespace RT
 			int freezeframe;
 			
 			bool render_blit;
+
+			int32_t render_segment;
 		} scene;
 
 		RingBuffer resource_upload_ring_buffer;

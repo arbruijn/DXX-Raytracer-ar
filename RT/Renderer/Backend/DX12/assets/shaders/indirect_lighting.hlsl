@@ -164,6 +164,7 @@ void IndirectLightingRaygen()
 
 			// Set up geometry input for primary ray trace
 			PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
+			
 			RayDesc ray   = (RayDesc)0;
 			ray.Origin    = gbuf_world_p + 0.01f * gbuf_normal;
 			ray.Direction = bounce_direction;

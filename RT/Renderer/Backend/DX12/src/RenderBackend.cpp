@@ -2553,6 +2553,9 @@ void RenderBackend::Init(const RT_RendererInitParams* render_init_params)
 		triangles[0].uv2      = uvs[2];
 		triangles[0].color    = 0xFFFFFFFF;
 		triangles[0].material_edge_index = RT_TRIANGLE_MATERIAL_INSTANCE_OVERRIDE;
+		triangles[0].portal = false;
+		triangles[0].segment = -1;
+		triangles[0].segment_adjacent = -1;
 
 		triangles[1].pos0     = vertices[0];
 		triangles[1].pos1     = vertices[2];
@@ -2568,6 +2571,9 @@ void RenderBackend::Init(const RT_RendererInitParams* render_init_params)
 		triangles[1].uv2      = uvs[3];
 		triangles[1].color    = 0xFFFFFFFF;
 		triangles[1].material_edge_index = RT_TRIANGLE_MATERIAL_INSTANCE_OVERRIDE;
+		triangles[1].portal = false;
+		triangles[1].segment = -1;
+		triangles[1].segment_adjacent = -1;
 
 		RT_UploadMeshParams params = {};
 		params.name           = "Billboard Quad";
@@ -3080,6 +3086,8 @@ void RenderBackend::BeginScene(const RT_SceneSettings* scene_settings)
 	g_d3d.scene.freezeframe |= tweak_vars.freezeframe;
 	g_d3d.scene.prev_camera = g_d3d.scene.camera;
 
+	g_d3d.scene.render_segment = scene_settings->render_segment;
+
 	g_d3d.prev_lights_count = g_d3d.lights_count;
 
 	if (!g_d3d.scene.freezeframe)
@@ -3161,6 +3169,8 @@ void RenderBackend::EndScene()
 			scene_cb->viewport_offset_y = g_d3d.viewport_offset_y;
 			scene_cb->screen_color_overlay = g_d3d.io.screen_overlay_color;
 
+			scene_cb->ray_segment = g_d3d.scene.render_segment;
+			
 			D3D12_CPU_DESCRIPTOR_HANDLE cbv = frame->descriptors.GetCPUDescriptor(D3D12GlobalDescriptors_CBV_GlobalConstantBuffer);
 
 			D3D12_CONSTANT_BUFFER_VIEW_DESC cbv_desc = {};

@@ -36,7 +36,7 @@ short m_lights_relevance_score[1024] = { 0.0f };
 short m_lights_to_sort[1024];
 int m_lights_found = 0;
 
-RT_Triangle RT_TriangleFromIndices(RT_Vertex* verts, int vert_offset, int v0, int v1, int v2, int tmap) 
+RT_Triangle RT_TriangleFromIndices(RT_Vertex* verts, int vert_offset, int v0, int v1, int v2, int tmap, bool portal, int segment, int segment_adjacent)
 {
 	RT_Triangle triangle = { 0 };
 
@@ -61,6 +61,10 @@ RT_Triangle RT_TriangleFromIndices(RT_Vertex* verts, int vert_offset, int v0, in
 	triangle.uv1 = verts[vert_offset + v1].uv;
 	triangle.uv2 = verts[vert_offset + v2].uv;
 	triangle.color = 0xFFFFFFFF;
+
+	triangle.portal = portal;
+	triangle.segment = segment;
+	triangle.segment_adjacent = segment_adjacent;
 
 	return triangle;
 }
@@ -184,6 +188,7 @@ RT_ResourceHandle RT_UploadLevelGeometry()
 					//assert(vert.uv.x >= -10.0 && vert.uv.x <= 10.0);
 				}
 
+				
 				// Ignore invisible walls
 				bool should_render = false;
 				if (seg->children[side_index] == -1)
@@ -199,22 +204,20 @@ RT_ResourceHandle RT_UploadLevelGeometry()
 						should_render = true;
 					}
 				}
-
-				if (!should_render) { continue; }
-
+				
 				int absolute_side_index = MAX_SIDES_PER_SEGMENT*seg_id + side_index;
 				switch (s->type) 
 				{
 					case SIDE_IS_TRI_13:
-						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 3, absolute_side_index);
-						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 1, 2, 3, absolute_side_index);
+						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 3, absolute_side_index, !should_render,seg_id, seg->children[side_index]);
+						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 1, 2, 3, absolute_side_index, !should_render, seg_id, seg->children[side_index]);
 					break;
 					
 					case SIDE_IS_QUAD:
 					case SIDE_IS_TRI_02:
 					default:
-						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 2, absolute_side_index);
-						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 2, 3, absolute_side_index);
+						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 2, absolute_side_index, !should_render, seg_id, seg->children[side_index]);
+						triangles[num_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 2, 3, absolute_side_index, !should_render, seg_id, seg->children[side_index]);
 					break;
 				}
 				

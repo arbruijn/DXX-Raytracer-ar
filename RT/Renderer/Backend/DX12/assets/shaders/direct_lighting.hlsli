@@ -241,8 +241,26 @@ void CalculateDirectLightingAtSurface(in HitGeometry IN, inout DirectLightingOut
 
 				OcclusionRayPayload occlusion_payload;
 				occlusion_payload.visible = false;
+				occlusion_payload.num_portal_hits = 1;
+				occlusion_payload.portal_hits[0].segment = IN.hit_triangle.segment;	// put starting surface segment as first portal hit
+				occlusion_payload.portal_hits[0].segment_adjacent = -1;
+				occlusion_payload.portal_hits[0].hit_distance = 0.0;
+				occlusion_payload.valid_hit = false;
+				
+				int count = 0;
 
-				TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
+				while (!occlusion_payload.valid_hit && count < 3)
+				{
+					TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
+
+					if (!occlusion_payload.valid_hit)
+					{
+						// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
+						occlusion_ray.TMin = occlusion_payload.hit_distance + 0.01; // offset to avoid re-intersect
+					}
+
+					count++;
+				}
 
 				float3 c = occlusion_payload.visible * ndotl * s.e * W;
 
