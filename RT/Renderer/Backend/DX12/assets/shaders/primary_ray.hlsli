@@ -125,7 +125,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 uint retrace_count = 0;
 
                 
-                while (retrace_count < 2)  // retracing back through 2 portals seems to be enough to rid most artifacts
+                while (retrace_count < 2)  // retracing back through 2 portals seems to be enough to rid of most artifacts
                 {
                     retrace_count++;
 
