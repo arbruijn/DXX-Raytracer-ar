@@ -5,7 +5,8 @@ struct OcclusionRayPayload
 	bool visible;
 	float hit_distance;
 	int num_portal_hits;
-	PortalHit portal_hits[128];
+	int start_segment;
+	PortalHit portal_hits[12];
 	bool valid_hit;
 };
 
@@ -42,14 +43,21 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 				// if triangle is portal add to list of portal hits (only do on first pass, we reuse the portal hit data in the event of a second pass.)
 				if (hit_triangle.portal)
 				{
+					payload.num_portal_hits++;
+
+					int portal_hit_index = payload.num_portal_hits % 12;
+
+					payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
+					payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
+					payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
 					
-					if (payload.num_portal_hits < 127)
+					/*if (payload.num_portal_hits < 127)
 					{
 						payload.num_portal_hits++;
 						payload.portal_hits[payload.num_portal_hits - 1].segment = hit_triangle.segment;
 						payload.portal_hits[payload.num_portal_hits - 1].segment_adjacent = hit_triangle.segment_adjacent;
 						payload.portal_hits[payload.num_portal_hits - 1].hit_distance = hit_distance;
-					}
+					}*/
 					
 					break;  // never commit portal hits
 				}
@@ -71,13 +79,21 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 					// count a transparent wall as a portal
 					if (hit_triangle.segment != -1)
 					{
-						if (payload.num_portal_hits < 127)
+						payload.num_portal_hits++;
+
+						int portal_hit_index = payload.num_portal_hits % 12;
+
+						payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
+						payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
+						payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
+
+						/*if (payload.num_portal_hits < 127)
 						{
 							payload.num_portal_hits++;
 							payload.portal_hits[payload.num_portal_hits].segment = hit_triangle.segment;
 							payload.portal_hits[payload.num_portal_hits].segment_adjacent = hit_triangle.segment_adjacent;
 							payload.portal_hits[payload.num_portal_hits].hit_distance = hit_distance;
-						}
+						}*/
 					}
 				}
 				break;
@@ -111,7 +127,7 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 				retrace_count++;
 
 				// check if we have gotten back to the rays origin segment
-				if (search_segment == payload.portal_hits[0].segment)
+				if (search_segment == payload.start_segment)
 				{
 					// we got back to origin, so hit is valid
 					break;
@@ -120,7 +136,7 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 				bool found = false;
 
 				// search the portal hits to see if we crossed a portal to get to the current search segment
-				for (int search_index = 0; search_index < 127; search_index++)
+				for (int search_index = 0; search_index < 12; search_index++)
 				{
 					if (payload.portal_hits[search_index].segment_adjacent == search_segment)
 					{

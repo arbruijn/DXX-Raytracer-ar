@@ -164,10 +164,11 @@ void IndirectLightingInline(COMPUTE_ARGS)
 
 			// Set up geometry input for primary ray trace
 			PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-			ray_payload.num_portal_hits = 1;
-			ray_payload.portal_hits[0].segment = hit_triangle.segment;	// put starting segment as first portal hit
-			ray_payload.portal_hits[0].segment_adjacent = -1;	// not an actual portal, so it doesn't have an adjacent
-			ray_payload.portal_hits[0].hit_distance = 0.0;
+			ray_payload.num_portal_hits = 0;
+			ray_payload.start_segment = hit_triangle.segment;
+			//ray_payload.portal_hits[0].segment = hit_triangle.segment;	// put starting segment as first portal hit
+			//ray_payload.portal_hits[0].segment_adjacent = -1;	// not an actual portal, so it doesn't have an adjacent
+			//ray_payload.portal_hits[0].hit_distance = 0.0;
 			ray_payload.valid_hit = false;
 
 			RayDesc ray   = (RayDesc)0;
