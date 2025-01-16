@@ -9,11 +9,12 @@ struct PrimaryRayPayload
     uint primitive_idx;
     float2 barycentrics;
     float hit_distance;
-    int num_portal_hits;
-    int start_segment;
-    PortalHit portal_hits[12];       //  just track the last 4 hits
+    int start_segment;                  
+    int num_portal_hits;                    // how many portals has ray crossed
+    PortalHit portal_hits[12];              // list of last 12 portals crossed
+    bool valid_hit;                         // Used to control if a ray needs to be retried due to hitting overlapping segment geometry
     int invalid_primitive_hit;              // what invalid primitive id was hit (so we can ignore it when we try again)
-    bool valid_hit;
+
 };
 
 void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_pos)
@@ -129,7 +130,6 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
             {
                 if (payload.portal_hits[search_index].segment_adjacent == search_segment)
                 {
-                    //found = true;
                     hit_score += 10;
                     search_segment = payload.portal_hits[search_index].segment; 
                     break;
@@ -140,56 +140,11 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
             {
                 if (payload.portal_hits[search_index].segment_adjacent == search_segment)
                 {
-                    //found = true;
                     hit_score += 1;
                     search_segment = payload.portal_hits[search_index].segment;
                     break;
                 }
             }
-            
-            /*if (hit_triangle.segment != -1)
-            {
-                
-                bool valid_hit = false;
-                int search_segment = hit_triangle.segment;
-                uint retrace_count = 0;
-
-                
-                while (retrace_count < 2)  // retracing back through 2 portals seems to be enough to rid of most artifacts
-                {
-                    retrace_count++;
-
-                    // check if we have gotten back to the rays origin segment
-                    if (search_segment == payload.start_segment)
-                    {
-                        // we got back to origin, so hit is valid
-                        break;
-                    }
-
-                    bool found = false;
-
-                    // search the portal hits to see if we crossed a portal to get to the current search segment
-                    
-                    for (int search_index = 0; search_index < 12; search_index++)
-                    {
-                        if (payload.portal_hits[search_index].segment_adjacent == search_segment)
-                        {
-                            found = true;
-                            search_segment = payload.portal_hits[search_index].segment; // we'll continue the retrace with this segment on the next loop 
-                            break;
-                        }
-                    }
-
-                    if (!found)
-                    {
-                        // we hit geometry that we didn't cross a portal for.
-                        payload.valid_hit = false;
-                        break;
-                    }
-
-                }
-                
-            }*/
 
             if(hit_score > 10)
             {

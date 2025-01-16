@@ -41,14 +41,7 @@ void PrimaryRaygen()
     // Trace the primary ray
     RayDesc ray = GetRayDesc(dispatch_idx, dispatch_dim);
     PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-    ray_payload.segment = g_global_cb.ray_segment;  // what cube/segment does ray originate in
-    ray_payload.missed = false;
-    ray_payload.hit_geo = false;
-
-    while (!ray_payload.missed || !ray_payload.hit_geo)
-    {
-        TracePrimaryRay(ray, ray_payload, dispatch_idx);
-    }
+    TracePrimaryRay(ray, ray_payload, dispatch_idx);
 
     // Set up geometry output from primary ray trace and set non-zero defaults where necessary
     HitGeometry geo = (HitGeometry)0;
@@ -56,36 +49,36 @@ void PrimaryRaygen()
 
     // Get geometry data from primary ray trace
     GetHitGeometryFromRay(ray,
-		ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
-		0, dispatch_idx, dispatch_dim, geo
-	);
+        ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
+        0, dispatch_idx, dispatch_dim, geo
+    );
     float3 geo_world_p = ReconstructWorldPosition(g_global_cb.view_inv, ray.Direction, ray_payload.hit_distance);
 
-	// -------------------------------------------------------------------------------------
-	// Determine gbuffer motion value
+    // -------------------------------------------------------------------------------------
+    // Determine gbuffer motion value
 
-	float3x4 world_to_object = float3x4(geo.instance_data.world_to_object[0],
-										geo.instance_data.world_to_object[1],
-										geo.instance_data.world_to_object[2]);
+    float3x4 world_to_object = float3x4(geo.instance_data.world_to_object[0],
+        geo.instance_data.world_to_object[1],
+        geo.instance_data.world_to_object[2]);
 
-	float3 object_p     = mul(world_to_object, float4(geo_world_p, 1)).xyz;
-	float3 prev_world_p = mul(geo.instance_data.object_to_world_prev, float4(object_p, 1)).xyz;
+    float3 object_p = mul(world_to_object, float4(geo_world_p, 1)).xyz;
+    float3 prev_world_p = mul(geo.instance_data.object_to_world_prev, float4(object_p, 1)).xyz;
 
-	if (!tweak.object_motion_vectors || tweak.freezeframe)
+    if (!tweak.object_motion_vectors || tweak.freezeframe)
     {
-		prev_world_p = geo_world_p;
+        prev_world_p = geo_world_p;
     }
 
-	float3 view_p      = mul(g_global_cb.view, float4(geo_world_p, 1)).xyz;
-	float3 prev_view_p = mul(g_global_cb.prev_view, float4(prev_world_p, 1)).xyz;
+    float3 view_p = mul(g_global_cb.view, float4(geo_world_p, 1)).xyz;
+    float3 prev_view_p = mul(g_global_cb.prev_view, float4(prev_world_p, 1)).xyz;
 
-	float2 screen_p      = Project(g_global_cb.proj, view_p);
-	float2 prev_screen_p = Project(g_global_cb.prev_proj, prev_view_p);
+    float2 screen_p = Project(g_global_cb.proj, view_p);
+    float2 prev_screen_p = Project(g_global_cb.prev_proj, prev_view_p);
 
-	float2 screen_motion = prev_screen_p - screen_p;
-	screen_motion.y = -screen_motion.y;
+    float2 screen_motion = prev_screen_p - screen_p;
+    screen_motion.y = -screen_motion.y;
 
-	geo.motion = screen_motion;
+    geo.motion = screen_motion;
 
     // -------------------------------------------------------------------------------------
     // Write to G-buffers
@@ -114,11 +107,11 @@ void PrimaryRaygen()
     img_material[dispatch_idx] = geo.material_index;
     img_visibility_prim[dispatch_idx] = geo.vis_prim;
     img_visibility_bary[dispatch_idx] = geo.vis_bary;
-    
-	if (tweak.upscaling_aa_mode == UPSCALING_AA_MODE_AMD_FSR_2_2)
-	{
-	    // Determine if the pixel should write to the reactive mask for FSR2
-	    img_fsr2_reactive_mask[pixel_pos] = float(g_materials[geo.material_index].flags & RT_MaterialFlag_Fsr2ReactiveMask) * tweak.amd_fsr2_reactive_scale;
+
+    if (tweak.upscaling_aa_mode == UPSCALING_AA_MODE_AMD_FSR_2_2)
+    {
+        // Determine if the pixel should write to the reactive mask for FSR2
+        img_fsr2_reactive_mask[pixel_pos] = float(g_materials[geo.material_index].flags & RT_MaterialFlag_Fsr2ReactiveMask) * tweak.amd_fsr2_reactive_scale;
     }
 
 #if RT_PIXEL_DEBUG
@@ -137,48 +130,17 @@ void PrimaryRaygen()
 [shader("closesthit")]
 void PrimaryClosesthit(inout PrimaryRayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    uint instance_idx = InstanceIndex();
-    uint primitive_idx = PrimitiveIndex();
-
-    InstanceData instance_data = g_instance_data_buffer[instance_idx];
-    RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
-
-    if (hit_triangle.portal)
-    {
-        payload.segment = hit_triangle.segment_adjacent;    // change search segment to next segment
-        payload.missed = false;
-        payload.hit_geo = false;
-    }
-    else
-    {
-        payload.missed = false;
-        payload.hit_geo = true;
-
-        payload.instance_idx = instance_idx;
-        payload.primitive_idx = primitive_idx;
-        payload.barycentrics = attr.barycentrics;
-        payload.hit_distance = RayTCurrent();
-    }   
+    payload.instance_idx = InstanceIndex();
+    payload.primitive_idx = PrimitiveIndex();
+    payload.barycentrics = attr.barycentrics;
+    payload.hit_distance = RayTCurrent();
 }
 
 [shader("anyhit")]
 void PrimaryAnyhit(inout PrimaryRayPayload payload, in BuiltInTriangleIntersectionAttributes attr)
 {
-    uint instance_idx = InstanceIndex();
-    uint primitive_idx = PrimitiveIndex();
-
-    InstanceData instance_data = g_instance_data_buffer[instance_idx];
-    RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
-
-    // if triangle is level geo and not in the current segment
-    if (hit_triangle.segment != -1 && hit_triangle.segment != payload.segment)
-    {
-        IgnoreHit();
-    }
-
     Material hit_material;
-    // if not a portal and is transparent
-    if (!hit_triangle.portal || IsHitTransparent(instance_idx, primitive_idx, attr.barycentrics, DispatchRaysIndex().xy, hit_material))
+    if (IsHitTransparent(InstanceIndex(), PrimitiveIndex(), attr.barycentrics, DispatchRaysIndex().xy, hit_material))
     {
         IgnoreHit();
     }
@@ -191,7 +153,6 @@ void PrimaryMiss(inout PrimaryRayPayload payload)
     payload.primitive_idx = ~0;
     payload.barycentrics = float2(0, 0);
     payload.hit_distance = RT_RAY_T_MAX;
-    payload.missed = true;
 }
 
 #endif /* PRIMARY_RAY_HLSL */

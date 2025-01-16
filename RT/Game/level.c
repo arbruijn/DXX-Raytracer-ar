@@ -189,7 +189,7 @@ RT_ResourceHandle RT_UploadLevelGeometry()
 				}
 
 				
-				// Ignore invisible walls
+				// Mark invisible walls as portals
 				bool should_render = false;
 				if (seg->children[side_index] == -1)
 				{
