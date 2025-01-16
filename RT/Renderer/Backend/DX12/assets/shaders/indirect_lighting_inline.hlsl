@@ -178,17 +178,24 @@ void IndirectLightingInline(COMPUTE_ARGS)
 			// Trace the primary ray
 			int count = 0;
 
-			while (!ray_payload.valid_hit && count < 3)
+			if(tweak.retrace_rays)
+			{ 
+				while (!ray_payload.valid_hit && count < 3)
+				{
+					TracePrimaryRay(ray, ray_payload, pixel_pos);
+
+					if (!ray_payload.valid_hit)
+					{
+						// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist
+						ray.TMin = ray_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
+					}
+
+					count++;
+				}
+			}
+			else
 			{
 				TracePrimaryRay(ray, ray_payload, pixel_pos);
-
-				if (!ray_payload.valid_hit)
-				{
-					// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist
-					ray.TMin = ray_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
-				}
-
-				count++;
 			}
 
 			// Set up geometry output from primary ray trace and set non-zero defaults where necessary

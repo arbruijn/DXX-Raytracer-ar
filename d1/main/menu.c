@@ -1462,6 +1462,9 @@ void raytrace_config()
 	int opt_gr_enable_parallax = nitems;
 	m[nitems].type = NM_TYPE_CHECK; m[nitems].text = "Parallax Mapping"; m[nitems].value = RT_GetIntFromConfig(config, RT_StringLiteral("enable_parallax_mapping")); nitems++;
 
+	int opt_gr_retrace_rays = nitems;
+	m[nitems].type = NM_TYPE_CHECK; m[nitems].text = "Retrace Rays"; m[nitems].value = RT_GetIntFromConfig(config, RT_StringLiteral("retrace_rays")); nitems++;
+
 	RT_ASSERT(nitems <= RT_ARRAY_COUNT(m));
 
 	newmenu_do1( NULL, "Raytracing Options", nitems, m, raytrace_config_menuset, NULL, 1 );
@@ -1551,6 +1554,7 @@ void raytrace_config()
 		RT_ConfigWriteFloat(config, RT_StringLiteral("vignette_strength"), ((float)m[opt_gr_vignette_strength].value)/10.0f);
 
 		RT_ConfigWriteInt(config, RT_StringLiteral("enable_parallax_mapping"), m[opt_gr_enable_parallax].value);
+		RT_ConfigWriteInt(config, RT_StringLiteral("retrace_rays"), m[opt_gr_retrace_rays].value);
 
 		RT_SerializeConfigToFile(config, RT_RENDER_SETTINGS_CONFIG_FILE); 
 		config->last_modified_time = RT_GetHighResTime().value;

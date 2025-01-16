@@ -248,17 +248,24 @@ void CalculateDirectLightingAtSurface(in HitGeometry IN, inout DirectLightingOut
 				
 				int count = 0;
 
-				while (!occlusion_payload.valid_hit && count < 3)
+				if (tweak.retrace_rays)
+				{
+					while (!occlusion_payload.valid_hit && count < 3)
+					{
+						TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
+
+						if (!occlusion_payload.valid_hit)
+						{
+							// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
+							occlusion_ray.TMin = occlusion_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
+						}
+
+						count++;
+					}
+				}
+				else
 				{
 					TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
-
-					if (!occlusion_payload.valid_hit)
-					{
-						// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
-						occlusion_ray.TMin = occlusion_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
-					}
-
-					count++;
 				}
 
 				float3 c = occlusion_payload.visible * ndotl * s.e * W;
