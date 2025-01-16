@@ -10,10 +10,10 @@ struct PrimaryRayPayload
     float2 barycentrics;
     float hit_distance;
     int start_segment;                  
-    int num_portal_hits;                    // how many portals has ray crossed
-    PortalHit portal_hits[12];              // list of last 12 portals crossed
-    bool valid_hit;                         // Used to control if a ray needs to be retried due to hitting overlapping segment geometry
-    int invalid_primitive_hit;              // what invalid primitive id was hit (so we can ignore it when we try again)
+    int num_portal_hits;                        // how many portals has ray crossed
+    PortalHit portal_hits[RT_NUM_PORTAL_HITS];  // list of last portals crossed
+    bool valid_hit;                             // Used to control if a ray needs to be retried due to hitting overlapping segment geometry
+    int invalid_primitive_hit;                  // what invalid primitive id was hit (so we can ignore it when we try again)
 
 };
 
@@ -54,7 +54,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 {
                     payload.num_portal_hits++;
 
-                    int portal_hit_index = payload.num_portal_hits % 12;
+                    int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
 
                     payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
                     payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
@@ -85,7 +85,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                         {
                             payload.num_portal_hits++;
 
-                            int portal_hit_index = payload.num_portal_hits % 12;
+                            int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
 
                             payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
                             payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
@@ -123,10 +123,11 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
             int hit_score = 0;
 
             // if hit triangle is world geo (has segment) retrace the ray back to see if it passed through portals that lead to this triangle.  otherwise hit is invalid
+            // checking if it passed through 2 seems to get rid of most of the overlapping geo
             int search_segment = hit_triangle.segment;
             hit_score += (search_segment == -1) * 11;  // always render if not world geo (has segment)
             hit_score += (search_segment == payload.start_segment) * 11;  // triangle is in start segment
-            for (int search_index = 0; search_index < 12; search_index++)
+            for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
             {
                 if (payload.portal_hits[search_index].segment_adjacent == search_segment)
                 {
@@ -136,7 +137,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 }
             }
             hit_score += (search_segment == payload.start_segment);  // new segment is start segment
-            for (int search_index = 0; search_index < 12; search_index++)
+            for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
             {
                 if (payload.portal_hits[search_index].segment_adjacent == search_segment)
                 {
@@ -194,7 +195,7 @@ struct HitGeometry
 
 void GetHitGeometryFromRay(RayDesc ray,
     uint instance_index, uint primitive_index, float2 barycentrics, float hit_distance,
-    uint recursion_depth, int2 pixel_pos, int2 render_dim, inout HitGeometry OUT)
+    uint recursion_depth, int2 pixel_pos, int2 render_dim, inout HitGeometry OUT,bool do_parallax)
 {
     // -------------------------------------------------------------------------------------
     // Determine gbuffer hit world direction value
@@ -225,7 +226,7 @@ void GetHitGeometryFromRay(RayDesc ray,
         // ==========================================================================
         // parallax mapping
         // ==========================================================================
-        if (tweak.enable_parallax_mapping)
+        if (tweak.enable_parallax_mapping && do_parallax)
         {
             Texture2D tex_height = GetTextureFromIndex(hit_material.height_index);
 

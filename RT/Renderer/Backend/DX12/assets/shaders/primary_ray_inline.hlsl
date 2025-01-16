@@ -43,7 +43,7 @@ void PrimaryRayInline(COMPUTE_ARGS)
 
 	GetHitGeometryFromRay(ray,
 		ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
-		0, pixel_pos, g_global_cb.render_dim, geo
+		0, pixel_pos, g_global_cb.render_dim, geo, true
 	);
 
 	// ---------------------------------------------------------------------------------------------------------------

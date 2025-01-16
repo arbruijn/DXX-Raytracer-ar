@@ -85,6 +85,8 @@ static const float PI = 3.14159265359;
 #define RT_RAY_T_MIN 0.001
 #define RT_RAY_T_MAX 10000
 
+#define RT_NUM_PORTAL_HITS 16
+
 // @Volatile: Must match RT_Triangle in Renderer.h
 struct RT_Triangle
 {

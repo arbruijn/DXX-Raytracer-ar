@@ -197,7 +197,7 @@ void IndirectLightingInline(COMPUTE_ARGS)
 			// Get geometry data from primary ray trace
 			GetHitGeometryFromRay(ray,
 				ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
-				0, pixel_pos, g_global_cb.render_dim, geo
+				0, pixel_pos, g_global_cb.render_dim, geo, false
 			);
 			geo.world_p = gbuf_world_p + ray_payload.hit_distance*bounce_direction;
 
