@@ -8,6 +8,7 @@ struct OcclusionRayPayload
 	int start_segment;
 	PortalHit portal_hits[12];
 	bool valid_hit;
+	int invalid_primitive_hit;              // what invalid primitive id was hit (so we can ignore it when we try again)
 };
 
 void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pixel_pos)
@@ -51,49 +52,36 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 					payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
 					payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
 					
-					/*if (payload.num_portal_hits < 127)
-					{
-						payload.num_portal_hits++;
-						payload.portal_hits[payload.num_portal_hits - 1].segment = hit_triangle.segment;
-						payload.portal_hits[payload.num_portal_hits - 1].segment_adjacent = hit_triangle.segment_adjacent;
-						payload.portal_hits[payload.num_portal_hits - 1].hit_distance = hit_distance;
-					}*/
-					
 					break;  // never commit portal hits
 				}
 
 				Material hit_material;
 
-				if (!IsHitTransparent(
-					ray_query.CandidateInstanceIndex(),
-					ray_query.CandidatePrimitiveIndex(),
-					ray_query.CandidateTriangleBarycentrics(),
-					pixel_pos,
-					hit_material
-				))
+				if (payload.invalid_primitive_hit != primitive_idx) // ignore invalid primitive
 				{
-					ray_query.CommitNonOpaqueTriangleHit();
-				}
-				else
-				{
-					// count a transparent wall as a portal
-					if (hit_triangle.segment != -1)
+					if (!IsHitTransparent(
+						ray_query.CandidateInstanceIndex(),
+						ray_query.CandidatePrimitiveIndex(),
+						ray_query.CandidateTriangleBarycentrics(),
+						pixel_pos,
+						hit_material
+					))
 					{
-						payload.num_portal_hits++;
-
-						int portal_hit_index = payload.num_portal_hits % 12;
-
-						payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
-						payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
-						payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
-
-						/*if (payload.num_portal_hits < 127)
+						ray_query.CommitNonOpaqueTriangleHit();
+					}
+					else
+					{
+						// count a transparent wall as a portal
+						if (hit_triangle.segment != -1)
 						{
 							payload.num_portal_hits++;
-							payload.portal_hits[payload.num_portal_hits].segment = hit_triangle.segment;
-							payload.portal_hits[payload.num_portal_hits].segment_adjacent = hit_triangle.segment_adjacent;
-							payload.portal_hits[payload.num_portal_hits].hit_distance = hit_distance;
-						}*/
+
+							int portal_hit_index = payload.num_portal_hits % 12;
+
+							payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
+							payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
+							payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
+						}
 					}
 				}
 				break;
@@ -115,7 +103,35 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 		payload.valid_hit = true;
 		payload.visible = true;
 
-		// if hit triangle is world geo (belongs to a segment) check the portal hits to see if its segment was the last portal we passed through before getting to it.  otherwise hit is invalid
+		int hit_score = 0;
+
+		// if hit triangle is world geo (has segment) retrace the ray back to see if it passed through portals that lead to this triangle.  otherwise hit is invalid
+		int search_segment = hit_triangle.segment;
+		hit_score += (search_segment == -1) * 11;  // always render if not world geo (has segment)
+		hit_score += (search_segment == payload.start_segment) * 11;  // triangle is in start segment
+		for (int search_index = 0; search_index < 12; search_index++)
+		{
+			if (payload.portal_hits[search_index].segment_adjacent == search_segment)
+			{
+				//found = true;
+				hit_score += 10;
+				search_segment = payload.portal_hits[search_index].segment;
+				break;
+			}
+		}
+		hit_score += (search_segment == payload.start_segment);  // new segment is start segment
+		for (int search_index = 0; search_index < 12; search_index++)
+		{
+			if (payload.portal_hits[search_index].segment_adjacent == search_segment)
+			{
+				//found = true;
+				hit_score += 1;
+				search_segment = payload.portal_hits[search_index].segment;
+				break;
+			}
+		}
+
+		/*// if hit triangle is world geo (belongs to a segment) check the portal hits to see if its segment was the last portal we passed through before getting to it.  otherwise hit is invalid
 		if (hit_triangle.segment != -1)
 		{
 			bool valid_hit = false;
@@ -154,12 +170,17 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 				}
 
 			}
-		}
+		}*/
 
-		if (payload.valid_hit)
+		if (hit_score > 10)
 		{
-			
+			payload.valid_hit = true;
 			payload.visible = false;
+		}
+		else
+		{
+			payload.valid_hit = false;
+			payload.invalid_primitive_hit = primitive_idx;
 		}
 		payload.hit_distance = hit_distance;
 

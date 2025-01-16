@@ -15,9 +15,7 @@ void PrimaryRayInline(COMPUTE_ARGS)
 	PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
 	ray_payload.num_portal_hits = 0;
 	ray_payload.start_segment = g_global_cb.ray_segment;
-	//ray_payload.portal_hits[0].segment = g_global_cb.ray_segment;	// put starting segment as first portal hit
-	//ray_payload.portal_hits[0].segment_adjacent = -1;	// not an actual portal, so it doesn't have an adjacent
-	//ray_payload.portal_hits[0].hit_distance = 0.0;
+	ray_payload.invalid_primitive_hit = -1;
 	ray_payload.valid_hit = false;
 	
 	int count = 0;
@@ -29,7 +27,7 @@ void PrimaryRayInline(COMPUTE_ARGS)
 		if (!ray_payload.valid_hit)
 		{
 			// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist after the invalid hit and send again
-			ray.TMin = ray_payload.hit_distance + 0.01; // offset to avoid re-intersect
+			ray.TMin = ray_payload.hit_distance - 0.01; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
 		}
 
 		count++;
