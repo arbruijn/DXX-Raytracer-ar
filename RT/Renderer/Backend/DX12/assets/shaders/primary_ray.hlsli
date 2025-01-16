@@ -58,16 +58,6 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                     payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
                     payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
                     payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
-
-                    
-                    /*if (payload.num_portal_hits < 127)
-                    {
-                        payload.num_portal_hits++;
-                        payload.portal_hits[payload.num_portal_hits - 1 ].segment = hit_triangle.segment;
-                        payload.portal_hits[payload.num_portal_hits - 1 ].segment_adjacent = hit_triangle.segment_adjacent;
-                        payload.portal_hits[payload.num_portal_hits - 1 ].hit_distance = hit_distance;
-                        
-                    }*/
                     
                     break;  // always don't commit portal hits
                 }
@@ -99,14 +89,6 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                             payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
                             payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
                             payload.portal_hits[portal_hit_index].hit_distance = hit_distance;
-
-                            /*if (payload.num_portal_hits < 127)
-                            {
-                                payload.num_portal_hits++;
-                                payload.portal_hits[payload.num_portal_hits - 1 ].segment = hit_triangle.segment;
-                                payload.portal_hits[payload.num_portal_hits - 1 ].segment_adjacent = hit_triangle.segment_adjacent;
-                                payload.portal_hits[payload.num_portal_hits - 1 ].hit_distance = hit_distance;
-                            }*/
                         }
                     }
                 }
