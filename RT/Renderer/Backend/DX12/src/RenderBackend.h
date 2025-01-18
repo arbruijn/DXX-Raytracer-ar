@@ -47,6 +47,7 @@ namespace RenderBackend
 	void RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 top_p, float width);
 	void RaytraceRender();
     void RaytraceSetSkyColors(RT_Vec3 top, RT_Vec3 bottom);
+	bool GetRetraceRays();
 
 	// -----------------------------------------------------------------------------------------------
 	// Rasterization (UI, debug rendering)

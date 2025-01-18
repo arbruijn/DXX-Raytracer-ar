@@ -386,6 +386,7 @@ RT_API void RT_RenderImGui();
 // Utility functions
 
 RT_API void RT_QueueScreenshot(const char *file_name);
+RT_API bool RT_GetRetraceRays();
 
 // Don't forget to pop.
 #pragma pack(pop)

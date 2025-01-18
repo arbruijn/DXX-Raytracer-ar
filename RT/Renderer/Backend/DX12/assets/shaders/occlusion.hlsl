@@ -102,7 +102,7 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 		InstanceData instance_data = g_instance_data_buffer[instance_idx];
 		RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
 		payload.valid_hit = true;
-		payload.visible = true;
+		payload.visible = false;
 
 		if (tweak.retrace_rays)
 		{

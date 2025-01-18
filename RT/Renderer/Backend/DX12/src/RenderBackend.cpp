@@ -4602,6 +4602,11 @@ void RenderBackend::RaytraceSetSkyColors(const RT_Vec3 top, const RT_Vec3 bottom
 	CurrentFrameData()->scene_cb.As<GlobalConstantBuffer>()->sky_color_bottom = bottom;
 }
 
+bool RenderBackend::GetRetraceRays()
+{
+	return tweak_vars.retrace_rays;
+}
+
 void RenderBackend::RasterSetViewport(float x, float y, float width, float height)
 {
 	g_d3d_raster.viewport = { x, y, width, height, 0.1f, 5000.0f };

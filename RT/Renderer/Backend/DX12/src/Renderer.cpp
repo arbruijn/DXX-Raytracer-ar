@@ -353,3 +353,8 @@ void RT_QueueScreenshot(const char *file_name)
 {
 	RenderBackend::QueueScreenshot(file_name);
 }
+
+bool RT_GetRetraceRays()
+{
+	return RenderBackend::GetRetraceRays();
+}
