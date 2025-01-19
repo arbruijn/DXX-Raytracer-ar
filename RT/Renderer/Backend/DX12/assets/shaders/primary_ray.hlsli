@@ -120,7 +120,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
             RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
             payload.valid_hit = true;
 
-            if (tweak.retrace_rays)
+            if (tweak.retrace_rays && payload.start_segment != -1)
             {
                 int hit_score = 0;
 
