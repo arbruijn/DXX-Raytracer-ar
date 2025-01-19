@@ -214,6 +214,10 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 payload.hit_distance = hit_distance;
                 
             }
+
+            // we need the hit distance, as long as we didn't hit the terrain along the way
+            if(!payload.hit_terrain)        
+                payload.hit_distance = hit_distance;
             
 
             break;
