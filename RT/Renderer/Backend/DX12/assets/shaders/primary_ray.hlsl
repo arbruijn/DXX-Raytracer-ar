@@ -50,7 +50,7 @@ void PrimaryRaygen()
     // Get geometry data from primary ray trace
     GetHitGeometryFromRay(ray,
         ray_payload.instance_idx, ray_payload.primitive_idx, ray_payload.barycentrics, ray_payload.hit_distance,
-        0, dispatch_idx, dispatch_dim, geo, true
+        0, dispatch_idx, dispatch_dim, geo, tweak.enable_parallax_mapping
     );
     float3 geo_world_p = ReconstructWorldPosition(g_global_cb.view_inv, ray.Direction, ray_payload.hit_distance);
 

@@ -180,17 +180,17 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 {
                     bool is_geo = hit_triangle.segment != -1;
                     bool is_start = hit_triangle.segment == payload.start_segment; // triangle is in start segment (which is exit cube when external)
-                    bool ray_crossed_start_portal = false;
+                    bool ray_crossed_exit_portal = false;
                     for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
                     {
                         if (payload.portal_hits[search_index].segment == payload.start_segment)
                         {
-                            ray_crossed_start_portal = true;
+                            ray_crossed_exit_portal = true;
                             break;
                         }
                     }
 
-                    if (!is_geo || is_start || ray_crossed_start_portal)
+                    if (!is_geo || is_start || ray_crossed_exit_portal)
                     {
                         payload.valid_hit = true;
                         payload.instance_idx = instance_idx;
@@ -294,7 +294,7 @@ void GetHitGeometryFromRay(RayDesc ray,
         // ==========================================================================
         // parallax mapping
         // ==========================================================================
-        if (tweak.enable_parallax_mapping && do_parallax)
+        if (do_parallax)
         {
             Texture2D tex_height = GetTextureFromIndex(hit_material.height_index);
 
