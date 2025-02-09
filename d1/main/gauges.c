@@ -1591,26 +1591,10 @@ void draw_shield_bar(int shield)
 
 #define CLOAK_FADE_WAIT_TIME  0x400
 
-void draw_player_ship(int cloak_state,int x, int y)
+static int get_cloak_fade_value(int cloak_state)
 {
 	static fix cloak_fade_timer=0;
 	static int cloak_fade_value=GR_FADE_LEVELS-1;
-	grs_bitmap *bm = NULL;
-
-#ifdef NETWORK
-	if (Game_mode & GM_TEAM)
-	{
-		PIGGY_PAGE_IN(Gauges[GAUGE_SHIPS+get_team(Player_num)]);
-		bm = &GameBitmaps[Gauges[GAUGE_SHIPS+get_team(Player_num)].index];
-	}
-	else
-#endif
-	{
-		int color = Netgame.players[Player_num].color; 
-		
-		PIGGY_PAGE_IN(Gauges[GAUGE_SHIPS+color]);
-		bm = &GameBitmaps[Gauges[GAUGE_SHIPS+color].index];
-	}
 
 	// for(int i = 0; i < 8; i++) {
 	//	RT_LOGF(RT_LOGSERVERITY_MEDIUM, "Player ship %d %d\n", i, Gauges[GAUGE_SHIPS+i].index);
@@ -1659,10 +1643,31 @@ void draw_player_ship(int cloak_state,int x, int y)
 		cloak_fade_timer = 0;
 		cloak_fade_value = GR_FADE_LEVELS-1;
 	}
+	return cloak_fade_value;
+}
+
+void draw_player_ship(int cloak_state,int x, int y)
+{
+	grs_bitmap *bm = NULL;
+
+#ifdef NETWORK
+	if (Game_mode & GM_TEAM)
+	{
+		PIGGY_PAGE_IN(Gauges[GAUGE_SHIPS+get_team(Player_num)]);
+		bm = &GameBitmaps[Gauges[GAUGE_SHIPS+get_team(Player_num)].index];
+	}
+	else
+#endif
+	{
+		int color = Netgame.players[Player_num].color;
+		PIGGY_PAGE_IN(Gauges[GAUGE_SHIPS+color]);
+		bm = &GameBitmaps[Gauges[GAUGE_SHIPS+color].index];
+	}
+
 
 	gr_set_current_canvas(NULL);
 	hud_bitblt( HUD_SCALE_X(x), HUD_SCALE_Y(y), bm);
-	gr_settransblend(cloak_fade_value, GR_BLEND_NORMAL);
+	gr_settransblend(get_cloak_fade_value(cloak_state), GR_BLEND_NORMAL);
 	gr_rect(HUD_SCALE_X(x-3), HUD_SCALE_Y(y-3), HUD_SCALE_X(x+bm->bm_w+3), HUD_SCALE_Y(y+bm->bm_h+3));
 	gr_settransblend(GR_FADE_OFF, GR_BLEND_NORMAL);
 	gr_set_current_canvas( NULL );
@@ -3021,9 +3026,30 @@ void render_gauges()
 
 		// Render player ship and shield
         const int color = Netgame.players[Player_num].color;
+		int fade = get_cloak_fade_value(cloak);
+		gr_settransblend(fade == 0 ? 1 : fade, GR_BLEND_NORMAL);
 		render_ui_bitmap(Gauges[GAUGE_SHIPS + color], pos_ship_center.x - scl_ship, pos_ship_center.y - scl_ship, pos_ship_center.x + scl_ship, pos_ship_center.y + scl_ship);
-        const int bm_num = shields >= 100 ? 9 : (shields / 10);
-		render_ui_bitmap(Gauges[GAUGE_SHIELDS + 9 - bm_num], pos_ship_center.x - scl_shield, pos_ship_center.y - scl_shield, pos_ship_center.x + scl_shield, pos_ship_center.y + scl_shield);
+		gr_settransblend(GR_FADE_OFF, GR_BLEND_NORMAL);
+
+		int shield_gauge_idx;
+		if (Players[Player_num].flags & PLAYER_FLAGS_INVULNERABLE &&
+			(Players[Player_num].invulnerable_time+INVULNERABLE_TIME_MAX-GameTime64 > F1_0*4 || GameTime64 & 0x8000)) {
+			static fix time=0;
+
+			shield_gauge_idx = GAUGE_INVULNERABLE+invulnerable_frame;
+
+			time += FrameTime;
+
+			while (time > INV_FRAME_TIME) {
+				time -= INV_FRAME_TIME;
+				if (++invulnerable_frame == N_INVULNERABLE_FRAMES)
+					invulnerable_frame=0;
+			}
+		} else {
+			const int bm_num = shields >= 100 ? 9 : (shields / 10);
+			shield_gauge_idx = GAUGE_SHIELDS + 9 - bm_num;
+		}
+		render_ui_bitmap(Gauges[shield_gauge_idx], pos_ship_center.x - scl_shield, pos_ship_center.y - scl_shield, pos_ship_center.x + scl_shield, pos_ship_center.y + scl_shield);
 
 		// Draw weapons
 		gr_set_curfont(GAME_FONT);
