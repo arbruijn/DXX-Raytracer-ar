@@ -32,6 +32,11 @@ COPYRIGHT 1993-1998 PARALLAX SOFTWARE CORPORATION.  ALL RIGHTS RESERVED.
 #include "piggy.h"
 #include "bm.h"
 
+#ifdef RT_DX12
+#include "RTgr.h"
+#include "RTmaterials.h"
+#endif //RT_DX12
+
 morph_data morph_objects[MAX_MORPH_OBJECTS];
 
 //returns ptr to data for this object, or NULL if none
@@ -329,7 +334,7 @@ void draw_model(object* obj, int submodel_num, g3s_lrgb light, morph_data* md)
 	polymodel* pm = &Polygon_models[obj->rtype.pobj_info.model_num];
 
 #ifdef RT_DX12
-	RT_DrawPolyModelTree(obj->rtype.pobj_info.model_num, obj->signature, obj->type, &obj->pos, &obj->orient, &obj->rtype.pobj_info.anim_angles);
+	RT_DrawPolyModelTree(obj->rtype.pobj_info.model_num, obj->signature, obj->type, &obj->pos, &obj->orient, &obj->rtype.pobj_info.anim_angles, 0);
 	return;
 #endif //RT_DX12
 
