@@ -88,7 +88,7 @@ ushort GameBitmapXlat[MAX_BITMAP_FILES];
 
 #define DEFAULT_PIGFILE_REGISTERED      "descent.pig"
 
-#define PIGGY_BUFFER_SIZE (2048*1024)
+#define PIGGY_BUFFER_SIZE (4096*1024)
 #define PIGGY_SMALL_BUFFER_SIZE (1400*1024)		// size of buffer when GameArg.SysLowMem is set
 
 int piggy_page_flushed = 0;
@@ -470,7 +470,7 @@ int properties_init()
 
 #if 1	//def EDITOR
 	int sbytesoffset = PCSharePig ? sbytescompressed : sbytes;
-	Piggy_bitmap_cache_size = size - header_size - sbytesoffset + 16;
+	Piggy_bitmap_cache_size = size - header_size - sbytesoffset + 16 + (MacPig ? N_bitmaps * 16 : 0);
 	Assert( Piggy_bitmap_cache_size > 0 );
 #else
 	Piggy_bitmap_cache_size = PIGGY_BUFFER_SIZE;

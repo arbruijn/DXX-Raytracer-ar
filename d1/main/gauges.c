@@ -64,6 +64,8 @@ COPYRIGHT 1993-1998 PARALLAX SOFTWARE CORPORATION.  ALL RIGHTS RESERVED.
 #include "RTgr.h"
 #endif
 
+#define HIRESFONT (grd_curcanv->cv_font->ft_w >= 8)
+
 //bitmap numbers for gauges
 #define GAUGE_SHIELDS			0		//0..9, in decreasing order (100%,90%...0%)
 #define GAUGE_INVULNERABLE		10		//10..19
@@ -1745,7 +1747,8 @@ void draw_weapon_info_sub(int info_index,gauge_box *box,int pic_x,int pic_y,char
 	PIGGY_PAGE_IN( Weapon_info[info_index].picture );
 	if (PlayerCfg.CockpitMode[1] == CM_MODEL_3D) {
 #ifdef RT_DX12
-		render_ui_bitmap(Weapon_info[info_index].picture, pic_x, pic_y, pic_x + bm->bm_w * 6, pic_y + bm->bm_h * 6);
+		int scale = HIRESMODE ? 3 : 6;
+		render_ui_bitmap(Weapon_info[info_index].picture, pic_x, pic_y, pic_x + bm->bm_w * scale, pic_y + bm->bm_h * scale);
 #endif
 	}
 	else
@@ -2935,8 +2938,7 @@ void render_gauges()
 		grd_curcanv->cv_bitmap.bm_h = 1024;
 		last_width = 1024;
 		last_height = 1024;
-		FNTScaleX = 6;
-		FNTScaleY = 6;
+		FNTScaleX = FNTScaleY = HIRESFONT ? 3 : 6;
 		dx12_set_render_target(g_rt_cockpit_settings.cockpit_hud_texture);
 		RT_RasterSetViewport(0, 0, 1024, 1024);
 		draw_weapon_boxes();
@@ -3005,8 +3007,8 @@ void render_gauges()
 		}
 
 	    // Draw homing warning
-		FNTScaleX = scale_text_homing[0];
-		FNTScaleY = scale_text_homing[1];
+		FNTScaleX = scale_text_homing[0] / (HIRESFONT ? 2 : 1);
+		FNTScaleY = scale_text_homing[1] / (HIRESFONT ? 2 : 1);
 		const bool flash_timer_is_toggled_on = (GameTime64 & 0x4000);
 		const bool object_is_homing_in = (Players[Player_num].homing_object_dist >= 0);
 		const bool not_in_end_level_sequence = !Endlevel_sequence;
@@ -3027,8 +3029,8 @@ void render_gauges()
 		gr_set_curfont(GAME_FONT);
 
 		// Render shield number text
-		FNTScaleX = scale_text_misc[0];
-		FNTScaleY = scale_text_misc[1];
+		FNTScaleX = scale_text_misc[0] / (HIRESFONT ? 2 : 1);
+		FNTScaleY = scale_text_misc[1] / (HIRESFONT ? 2 : 1);
 		int sw, sh, saw, ew, eh, eaw;
 		gr_set_fontcolor(BM_XRGB(14, 14, 23), -1);
 		gr_get_string_size((shields > 199) ? "200" : (shields > 99) ? "100" : (shields > 9) ? "00" : "0", &sw, &sh, &saw);
