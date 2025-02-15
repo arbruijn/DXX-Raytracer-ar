@@ -12,6 +12,7 @@ void PrimaryRayInline(COMPUTE_ARGS)
 
 	// Trace the primary ray
 	RayDesc ray = GetRayDesc(pixel_pos, g_global_cb.render_dim);
+	ray.TMin = 0.00000000;											// for primary ray this must be 0.0 for ray retrace to work. moving ray forward even a little bit can move it into a segment ship/camera is not in, resulting in retrace failing and level geo disappearing
 	PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
 	ray_payload.num_portal_hits = 0;
 	ray_payload.start_segment = g_global_cb.ray_segment;
