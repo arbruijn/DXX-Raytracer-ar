@@ -1,6 +1,7 @@
 #include "dx12.h"
 #include "Core/Arena.h"
 #include "Core/MiniMath.h"
+#include "ImageReadWrite.h"
 
 #include "internal.h"
 #include "config.h"
@@ -1041,4 +1042,29 @@ bool dx12_ubitmapm_cs(int x, int y, int dw, int dh, grs_bitmap* bm, int c, int s
 bool dx12_ubitblt(int dw, int dh, int dx, int dy, int sw, int sh, int sx, int sy, grs_bitmap* src, grs_bitmap* dst, int texfilt)
 {
 	// One of the use-cases of this function is to render a preview of a savegame in the load menu
+}
+
+void dx12_load_png(grs_bitmap *bm, const char *basename)
+{
+	RT_ArenaMemoryScope(&g_thread_arena)
+	{
+		char *file = RT_ArenaPrintF(&g_thread_arena, "assets/textures/%s_basecolor.png", basename);
+
+		RT_Image image = RT_LoadImageFromDisk(&g_thread_arena, file, 4, false);
+
+		if (image.pixels)
+		{
+			if (!bm->dxtexture)
+				dx12_init_texture(bm);
+			//dx_texture *dt = bm->dxtexture;
+			//dt->w = dt->lw = dt->tw = image.width;
+			//dt->h = dt->th = image.height;
+			if (RT_RESOURCE_HANDLE_VALID(bm->dxtexture->handle))
+				RT_ReleaseTexture(bm->dxtexture->handle);
+			bm->dxtexture->handle = RT_UploadTexture(&(RT_UploadTextureParams) {
+				.image = image,
+				.name  = file,
+			});
+		}
+	}
 }

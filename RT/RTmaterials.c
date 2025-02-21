@@ -16,6 +16,7 @@
 
 #include "dx12.h"
 #include "rle.h"
+#include "gauges.h"
 
 // ------------------------------------------------------------------
 
@@ -643,6 +644,11 @@ int RT_ReloadMaterials(void)
 
 void RT_SyncMaterialStates(void) 
 {
+	ubyte is_gauge[MAX_BITMAP_FILES];
+
+	memset(is_gauge, 0, sizeof(is_gauge));
+	for (int i = 0; i < MAX_GAUGE_BMS; i++)
+		is_gauge[Gauges[i].index] = 1;
 
 	for (uint16_t bm_index = 1; bm_index < MAX_BITMAP_FILES; bm_index++)
 	{
@@ -662,6 +668,16 @@ void RT_SyncMaterialStates(void)
 		// Try to load the material definition
 		RT_Material* material = &g_rt_materials[bm_index];
 		RT_MaterialPaths* paths = &g_rt_material_paths[bm_index];
+
+		if (is_gauge[bm_index]) {
+			if  ((material->always_load_texture ||
+				( material->texture_load_state != material->texture_load_state_next && material->texture_load_state_next == RT_MaterialTextureLoadState_Loaded)) &&
+				!GameBitmaps[bm_index].dxtexture) {
+				dx12_load_png(&GameBitmaps[bm_index], bitmap_name);
+				material->texture_load_state = RT_MaterialTextureLoadState_Loaded;
+			}
+			continue;
+		}
 
 		if (material->always_load_texture || ( material->texture_load_state != material->texture_load_state_next))
 		{
