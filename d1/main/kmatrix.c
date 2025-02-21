@@ -336,6 +336,10 @@ int kmatrix_handler(window *wind, d_event *event, kmatrix_screen *km)
 			break;
 			
 		case EVENT_WINDOW_CLOSE:
+			if (Game_wind) {
+				window_set_visible(Game_wind, 0); // hack to avoid flash of game screen
+				gr_clear_canvas(BM_XRGB(0, 0, 0));
+			}
 			game_flush_inputs();
 			newmenu_free_background();
 			break;
