@@ -9,21 +9,15 @@ struct PrimaryRayPayload
     uint primitive_idx;
     float2 barycentrics;
     float hit_distance;
-    int start_segment;                  
-    int num_portal_hits;                        // how many portals has ray crossed
-    PortalHit portal_hits[RT_NUM_PORTAL_HITS];  // list of last portals crossed
-    bool valid_hit;                             // Used to control if a ray needs to be retried due to hitting overlapping segment geometry
     int invalid_primitive_hit;                  // what invalid primitive id was hit (so we can ignore it when we try again)
-    bool hit_terrain;                           // has the ray hit terrain
-
-
+    int hit_segment;                           // what level segment (if any) does the hit belong to.  Could look this up with instance and primitive idx's, but simpler to just record it here.
 };
 
-void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_pos)
+void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_pos, uint render_mask)
 {
 #if RT_DISPATCH_RAYS
 
-    TraceRay(g_scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, ~0, 0, 0, 0, ray, payload);
+    TraceRay(g_scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES, render_mask, 0, 0, 0, ray, payload);
 
 #elif RT_INLINE_RAYTRACING
     
@@ -31,7 +25,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 	ray_query.TraceRayInline(
 		g_scene,
 		RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
-		~0,
+        render_mask,
 		ray
 	);
 	
@@ -51,33 +45,6 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                 RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
                 float hit_distance = ray_query.CandidateTriangleRayT();
 
-                // if triangle is portal add to list of portal hits (only do on first pass, we reuse the portal hit data in the event of a second pass.)
-                if (hit_triangle.portal )
-                {
-                    if (tweak.retrace_rays)
-                    {
-                        payload.num_portal_hits++;
-
-                        int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
-
-                        payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
-                        payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
-                    }
-                    break;  // always don't commit portal hits
-                }
-
-                // check for terrain hit
-                if (hit_triangle.terrain)
-                {
-                    // store the hit information but don't commit the hit, because if there is level geometry behind... render that first
-                    payload.hit_terrain = true;
-                    payload.instance_idx = instance_idx;
-                    payload.primitive_idx = primitive_idx;
-                    payload.barycentrics = ray_query.CandidateTriangleBarycentrics();
-                    payload.hit_distance = hit_distance;
-                    break;  
-                }
-
 				Material hit_material;
 
 				// Check for transparency on hit candidate
@@ -93,19 +60,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
                     {
                         ray_query.CommitNonOpaqueTriangleHit();
                     }
-                    else
-                    {
-                        // count a transparent wall as a portal
-                        if (tweak.retrace_rays && hit_triangle.segment != -1)
-                        {
-                            payload.num_portal_hits++;
-
-                            int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
-
-                            payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
-                            payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
-                        }
-                    }
+                    
                 }
 				break;
 			}
@@ -115,8 +70,6 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 	// ---------------------------------------------------------------------------------------------------------------
 	// Determine instance/primitive indices, barycentrics and the hit distance
 	// Default values are set for a ray miss
-
-	
 
 	switch (ray_query.CommittedStatus())
 	{
@@ -129,113 +82,24 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 
             InstanceData instance_data = g_instance_data_buffer[instance_idx];
             RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
-            payload.valid_hit = true;
-
-            if (tweak.retrace_rays && payload.start_segment != -1)
-            {
-                if (!g_global_cb.external)
-                {
-                    int hit_score = 0;
-
-                    // if hit triangle is world geo (has segment) retrace the ray back to see if it passed through portals that lead to this triangle.  otherwise hit is invalid
-                    // checking if it passed through 2 seems to get rid of most of the overlapping geo
-                    int search_segment = hit_triangle.segment;
-                    hit_score += (search_segment == -1) * 11;  // always render if not world geo (has segment)
-                    hit_score += (search_segment == payload.start_segment) * 11;  // triangle is in start segment
-                    for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
-                    {
-                        if (payload.portal_hits[search_index].segment_adjacent == search_segment)
-                        {
-                            hit_score += 10;
-                            search_segment = payload.portal_hits[search_index].segment;
-                            break;
-                        }
-                    }
-                    hit_score += (search_segment == payload.start_segment);  // new segment is start segment
-                    for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
-                    {
-                        if (payload.portal_hits[search_index].segment_adjacent == search_segment)
-                        {
-                            hit_score += 1;
-                            search_segment = payload.portal_hits[search_index].segment;
-                            break;
-                        }
-                    }
-
-                    if (hit_score > 10)
-                    {
-                        payload.valid_hit = true;
-                        payload.instance_idx = instance_idx;
-                        payload.primitive_idx = primitive_idx;
-                        payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
-                        payload.hit_distance = hit_distance;
-                    }
-                    else
-                    {
-                        payload.valid_hit = false;
-                        payload.invalid_primitive_hit = primitive_idx;
-                    }
-                }
-                else // external 
-                {
-                    bool is_geo = hit_triangle.segment != -1;
-                    bool is_start = hit_triangle.segment == payload.start_segment; // triangle is in start segment (which is exit cube when external)
-                    bool ray_crossed_exit_portal = false;
-                    for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
-                    {
-                        if (payload.portal_hits[search_index].segment == payload.start_segment)
-                        {
-                            ray_crossed_exit_portal = true;
-                            break;
-                        }
-                    }
-
-                    if (!is_geo || is_start || ray_crossed_exit_portal)
-                    {
-                        payload.valid_hit = true;
-                        payload.instance_idx = instance_idx;
-                        payload.primitive_idx = primitive_idx;
-                        payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
-                        payload.hit_distance = hit_distance;
-                    }
-                    else
-                    {
-                        payload.valid_hit = false;
-                        payload.invalid_primitive_hit = primitive_idx;
-                    }
-                }
-            }
-            else
-            {
-                payload.valid_hit = true;
-                payload.instance_idx = instance_idx;
-                payload.primitive_idx = primitive_idx;
-                payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
-                payload.hit_distance = hit_distance;
-                
-            }
-
-            // we need the hit distance, as long as we didn't hit the terrain along the way
-            if(!payload.hit_terrain)        
-                payload.hit_distance = hit_distance;
-            
+           
+            payload.instance_idx = instance_idx;
+            payload.primitive_idx = primitive_idx;
+            payload.barycentrics = ray_query.CommittedTriangleBarycentrics();
+            payload.hit_distance = hit_distance;
+            payload.hit_segment = hit_triangle.segment;
 
             break;
 		}
 		// We do not need this case because we initialize the values by default to be as if the ray missed
 		case COMMITTED_NOTHING:
 		{
-			
-            payload.valid_hit = true;   // a miss is still a valid result
-                                        
-            // Missed level geo... check also missed terrain along the way
-            if (!payload.hit_terrain)
-            {
-                payload.instance_idx = ~0;
-                payload.primitive_idx = ~0;
-                payload.barycentrics = float2(0.0, 0.0);
-                payload.hit_distance = RT_RAY_T_MAX;
-            }
+            payload.instance_idx = ~0;
+            payload.primitive_idx = ~0;
+            payload.barycentrics = float2(0.0, 0.0);
+            payload.hit_distance = RT_RAY_T_MAX;
+            payload.hit_segment = -1;
+
 			break;
 		}
 	}

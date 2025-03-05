@@ -164,10 +164,8 @@ void IndirectLightingInline(COMPUTE_ARGS)
 
 			// Set up geometry input for primary ray trace
 			PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-			ray_payload.num_portal_hits = 0;
-			ray_payload.start_segment = hit_triangle.segment;
-			ray_payload.valid_hit = false;
 			ray_payload.invalid_primitive_hit = -1;
+			ray_payload.hit_segment = -1;
 
 			RayDesc ray   = (RayDesc)0;
 			ray.Origin    = gbuf_world_p + 0.01f * gbuf_normal;
@@ -178,24 +176,84 @@ void IndirectLightingInline(COMPUTE_ARGS)
 			// Trace the primary ray
 			int count = 0;
 
-			if(tweak.retrace_rays)
+			if (tweak.retrace_rays)
 			{ 
-				while (!ray_payload.valid_hit && count < 3)
-				{
-					TracePrimaryRay(ray, ray_payload, pixel_pos);
 
-					if (!ray_payload.valid_hit)
+				bool found = false;
+
+				while (!found && count < 3)
+				{
+					TracePrimaryRay(ray, ray_payload, pixel_pos, ~2);  // trace ray ignoring portals
+
+					// DO RETRACE HERE
+
+					// first check if the hit triangle is part of the segment we are looking for
+					if (ray_payload.hit_segment == -1 || ray_payload.hit_segment == hit_triangle.segment)
 					{
-						// we finished, but the result wasn't valid (usually intersecting sector hit).  update ray to set min dist
-						ray.TMin = ray_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
+						found = true;
+						break;
+					}
+					// if not setup a retrace ray that starts at the hit location and shoots back to the viewer
+					float3 newOrigin = ray.Origin + (ray.Direction * ray_payload.hit_distance);
+					RayDesc retrace_ray;
+					retrace_ray.Origin = newOrigin;
+					retrace_ray.Direction = ray.Direction * -1.0;
+					retrace_ray.TMin = 0.0;
+					retrace_ray.TMax = ray_payload.hit_distance + 1.0;	// add just a little bit to distance, cause it helps when the camera is close to a portal surface.
+
+					PortalRetraceRayPayload retrace_payload;
+					retrace_payload.search_segment = ray_payload.hit_segment;
+					retrace_payload.found = false;
+					retrace_payload.hit_distance = RT_RAY_T_MAX;
+					retrace_payload.next_segment = -1;
+
+					TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos,false);
+
+					if (retrace_payload.found)
+					{
+						if (retrace_payload.next_segment == hit_triangle.segment)
+						{
+							found = true;
+							break;
+						}
+						else
+						{
+							// do one more retrace
+							retrace_payload.search_segment = retrace_payload.next_segment;
+							retrace_payload.found = false;
+							retrace_payload.hit_distance = RT_RAY_T_MAX;
+							retrace_payload.next_segment = -1;
+
+							TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos,false);
+							if (retrace_payload.found)
+							{
+								found = true;
+								break;
+							}
+						}
 					}
 
+					// the hit surface failed the retrace... try again, setting previous primitive to invalid
+					ray_payload.invalid_primitive_hit = ray_payload.primitive_idx;
+					ray_payload.hit_segment = -1;
+					ray.TMin = ray_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
+
 					count++;
+				}
+
+				if (!found)
+				{
+					// valid hit was not found... set ray to missed settings
+					ray_payload.instance_idx = ~0;
+					ray_payload.primitive_idx = ~0;
+					ray_payload.barycentrics = float2(0.0, 0.0);
+					ray_payload.hit_distance = RT_RAY_T_MAX;
+					ray_payload.hit_segment = -1;
 				}
 			}
 			else
 			{
-				TracePrimaryRay(ray, ray_payload, pixel_pos);
+				TracePrimaryRay(ray, ray_payload, pixel_pos,~2);  // trace ray ignoring portals
 			}
 
 			// Set up geometry output from primary ray trace and set non-zero defaults where necessary

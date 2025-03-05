@@ -4,11 +4,9 @@ struct OcclusionRayPayload
 {
 	bool visible;
 	float hit_distance;
-	int start_segment;
-	int num_portal_hits;							// how many portals has ray crossed
-	PortalHit portal_hits[RT_NUM_PORTAL_HITS];		// list of last portals crossed 
-	bool valid_hit;									// Used to control if a ray needs to be retried due to hitting overlapping segment geometry
+	uint primitive_idx;
 	int invalid_primitive_hit;						// what invalid primitive id was hit (so we can ignore it when we try again)
+	int hit_segment;                           // what level segment (if any) does the hit belong to.  Could look this up with instance and primitive idx's, but simpler to just record it here.
 };
 
 void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pixel_pos)
@@ -16,7 +14,7 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 #if RT_DISPATCH_RAYS
 
     TraceRay(g_scene, RAY_FLAG_CULL_BACK_FACING_TRIANGLES | RAY_FLAG_SKIP_CLOSEST_HIT_SHADER,
-        ~0, 1, 0, 1, ray, payload);
+        ~2, 1, 0, 1, ray, payload);
 
 #elif RT_INLINE_RAYTRACING
 
@@ -24,7 +22,7 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 	ray_query.TraceRayInline(
 		g_scene,
 		RAY_FLAG_CULL_BACK_FACING_TRIANGLES,
-		~0,
+		~2,
 		ray
 	);
 
@@ -39,23 +37,6 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 
 				InstanceData instance_data = g_instance_data_buffer[instance_idx];
 				RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
-				float hit_distance = ray_query.CandidateTriangleRayT();
-
-				// if triangle is portal add to list of portal hits (only do on first pass, we reuse the portal hit data in the event of a second pass.)
-				if (hit_triangle.portal)
-				{
-					if (tweak.retrace_rays)
-					{
-						payload.num_portal_hits++;
-
-						int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
-
-						payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
-						payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
-					}
-					
-					break;  // never commit portal hits
-				}
 
 				Material hit_material;
 
@@ -71,19 +52,6 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 					{
 						ray_query.CommitNonOpaqueTriangleHit();
 					}
-					else
-					{
-						// count a transparent wall as a portal
-						if (tweak.retrace_rays && hit_triangle.segment != -1)
-						{
-							payload.num_portal_hits++;
-
-							int portal_hit_index = payload.num_portal_hits % RT_NUM_PORTAL_HITS;
-
-							payload.portal_hits[portal_hit_index].segment = hit_triangle.segment;
-							payload.portal_hits[portal_hit_index].segment_adjacent = hit_triangle.segment_adjacent;
-						}
-					}
 				}
 				break;
 			}
@@ -92,68 +60,26 @@ void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pix
 
 	switch (ray_query.CommittedStatus())
 	{
-	case COMMITTED_TRIANGLE_HIT:
-	{
-		float hit_distance = ray_query.CommittedRayT();
-
-		uint instance_idx = ray_query.CommittedInstanceIndex();
-		uint primitive_idx = ray_query.CommittedPrimitiveIndex();
-
-		InstanceData instance_data = g_instance_data_buffer[instance_idx];
-		RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
-		payload.valid_hit = true;
-		payload.visible = false;
-
-		if (tweak.retrace_rays && payload.start_segment != -1)
+		case COMMITTED_TRIANGLE_HIT:
 		{
-			int hit_score = 0;
+			float hit_distance = ray_query.CommittedRayT();
 
-			// if hit triangle is world geo (has segment) retrace the ray back to see if it passed through portals that lead to this triangle.  otherwise hit is invalid
-			// checking if it passed through 2 seems to get rid of most of the overlapping geo
-			int search_segment = hit_triangle.segment;
-			hit_score += (search_segment == -1) * 11;  // always render if not world geo (has segment)
-			hit_score += (search_segment == payload.start_segment) * 11;  // triangle is in start segment
-			for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
-			{
-				if (payload.portal_hits[search_index].segment_adjacent == search_segment)
-				{
-					// found the ray crossed a portal into this segment
-					hit_score += 10;
-					search_segment = payload.portal_hits[search_index].segment;		// update search segment for next loop
-					break;
-				}
-			}
-			hit_score += (search_segment == payload.start_segment);  // new segment is start segment
-			for (int search_index = 0; search_index < RT_NUM_PORTAL_HITS; search_index++)
-			{
-				if (payload.portal_hits[search_index].segment_adjacent == search_segment)
-				{
-					// found the ray crossed a portal into this segment
-					hit_score += 1;
-					break;
-				}
-			}
+			uint instance_idx = ray_query.CommittedInstanceIndex();
+			uint primitive_idx = ray_query.CommittedPrimitiveIndex();
 
-			if (hit_score > 10)
-			{
-				payload.valid_hit = true;
-				payload.visible = false;
-			}
-			else
-			{
-				payload.valid_hit = false;
-
-				payload.invalid_primitive_hit = primitive_idx;
-			}
-			
-		}
-		payload.hit_distance = hit_distance;
+			InstanceData instance_data = g_instance_data_buffer[instance_idx];
+			RT_Triangle hit_triangle = GetHitTriangle(instance_data.triangle_buffer_idx, primitive_idx);
 		
-		break;
-	}
+			payload.visible = false;
+
+			payload.hit_distance = hit_distance;
+			payload.hit_segment = hit_triangle.segment;
+			payload.primitive_idx = primitive_idx;
+		
+			break;
+		}
 		case COMMITTED_NOTHING:
 		{
-			payload.valid_hit = true;
 			payload.visible = true;
 			break;
 		}

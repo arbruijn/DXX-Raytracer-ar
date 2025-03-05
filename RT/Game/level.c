@@ -193,6 +193,7 @@ bool RT_UploadLevelGeometry(RT_ResourceHandle* level_handle, RT_ResourceHandle* 
 
 				// Mark invisible walls as portals
 				bool is_portal = true;
+				bool is_wall = false;
 				if (seg->children[side_index] == -1)
 				{
 					is_portal = false;
@@ -203,19 +204,20 @@ bool RT_UploadLevelGeometry(RT_ResourceHandle* level_handle, RT_ResourceHandle* 
 					// TODO(daniel): What about blastable wallls?
 					if (w->type != WALL_OPEN)
 					{
-						is_portal = false;
+						is_wall = true;
 					}
+				}
+				else if (seg->children[side_index] == -2)
+				{
+					is_portal = true;
 				}
 
 				int absolute_side_index = MAX_SIDES_PER_SEGMENT * seg_id + side_index;
 
-				// We need to build two different versions of the level mesh.  One with just the visible surfaces and one with both visible surfaces and portal surfaces.
-				// This is to allow ray retracing to disabled.  If you are wondering why we just don't have a second mesh with just the portal surfaces and turn that on 
-				// and off... a mesh only made up of invisible surfaces the size of the level allows rays to trace the entire distance of the level, resulting in weirdness
-				// and massive performance issues.  The portals must be in the same mesh as the regular geometry, which means two copies of the level mesh.
+				// Create two different meshes, one for visible level geo and one for portals (including walls) for retracing rays
 
-				// if not a portal surface add to regular level geometry
-				if (!is_portal)
+				// if not a portal surface or is a wall add to regular level geometry
+				if (!is_portal || is_wall)
 				{
 					switch (s->type)
 					{
@@ -233,20 +235,22 @@ bool RT_UploadLevelGeometry(RT_ResourceHandle* level_handle, RT_ResourceHandle* 
 					}
 				}
 				
-				// if its either a portal or regular surface add to level with portals geometry
-				switch (s->type)
+				if (is_portal || is_wall) // portals and walls to portals mesh
 				{
-				case SIDE_IS_TRI_13:
-					portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
-					portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 1, 2, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
-					break;
+					switch (s->type)
+					{
+					case SIDE_IS_TRI_13:
+						portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
+						portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 1, 2, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
+						break;
 
-				case SIDE_IS_QUAD:
-				case SIDE_IS_TRI_02:
-				default:
-					portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 2, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
-					portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 2, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
-					break;
+					case SIDE_IS_QUAD:
+					case SIDE_IS_TRI_02:
+					default:
+						portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 1, 2, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
+						portal_triangles[num_portal_triangles++] = RT_TriangleFromIndices(verts, vertex_offset, 0, 2, 3, absolute_side_index, is_portal, seg_id, seg->children[side_index]);
+						break;
+					}
 				}
 				
 				
@@ -400,12 +404,9 @@ void RT_RenderLevel(RT_Vec3 player_pos)
 
 	RT_Mat4 mat = RT_Mat4Identity();
 	
-	// switch which level to render if we are retracing rays or not
-	if(RT_GetRetraceRays())
-		RT_RaytraceMesh(g_level_with_portals_resource, &mat, &mat);
-	else
-		RT_RaytraceMesh(g_level_resource, &mat, &mat);
-	
+	// render each mesh on the proper render mask
+	RT_RaytraceMesh(g_level_resource, &mat, &mat, RT_RENDER_MASK_LEVELGEOMETRY);
+	RT_RaytraceMesh(g_level_with_portals_resource, &mat, &mat, RT_RENDER_MASK_PORTALS);
 }
 
 void TraverseSegmentsForLights(short seg_num, uint8_t* visit_list, uint8_t* lights_added, int curr_rec_depth, RT_Vec3 curr_seg_entry_pos, float curr_segment_distance) {

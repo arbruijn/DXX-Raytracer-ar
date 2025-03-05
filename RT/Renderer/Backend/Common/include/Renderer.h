@@ -21,6 +21,11 @@
 #define RT_MAX_MATERIAL_EDGES (RT_MAX_SEGMENTS*RT_SIDES_PER_SEGMENT)
 #define RT_MAX_TRIANGLES (RT_MAX_SEGMENTS*RT_SIDES_PER_SEGMENT*RT_TRIANGLES_PER_SIDE)
 #define RT_MAX_LIGHTS (100)
+#define RT_RENDER_MASK_LEVELGEOMETRY (1)
+#define RT_RENDER_MASK_PORTALS (2)
+#define RT_RENDER_MASK_TERRAIN (4)
+#define RT_RENDER_MASK_OBJECTS (8)
+
 
 // OR this in for triangle->material_edge_index for poly objects and have them
 // skip the material edges array...
@@ -89,6 +94,7 @@ typedef struct RT_RenderMeshParams
 	const RT_Mat4* prev_transform; // if you supply this the renderer uses it instead of the tracked prev transform it knows from the key
 	uint32_t color;
 	uint16_t material_override;
+	uint32_t instance_mask;
 } RT_RenderMeshParams;
 
 // Volatile: Must match common.hlsl
@@ -340,16 +346,16 @@ RT_API int RT_CheckWindowMinimized(void);
 
 RT_API uint32_t RT_RaytraceSetRenderFlagsOverride(uint32_t flags);
 RT_API void RT_RaytraceMeshEx(RT_RenderMeshParams* render_mesh_params);
-RT_API void RT_RaytraceMeshColor(RT_ResourceHandle mesh, RT_Vec4 color, const RT_Mat4* transform, const RT_Mat4* prev_transform);
-RT_API void RT_RaytraceMesh(RT_ResourceHandle mesh, const RT_Mat4* transform, const RT_Mat4* prev_transform);
-RT_API void RT_RaytraceMeshOverrideMaterial(RT_ResourceHandle mesh, uint16_t material_override, const RT_Mat4* transform, const RT_Mat4* prev_transform);
+RT_API void RT_RaytraceMeshColor(RT_ResourceHandle mesh, RT_Vec4 color, const RT_Mat4* transform, const RT_Mat4* prev_transform, uint32_t render_mask);
+RT_API void RT_RaytraceMesh(RT_ResourceHandle mesh, const RT_Mat4* transform, const RT_Mat4* prev_transform, uint32_t render_mask);
+RT_API void RT_RaytraceMeshOverrideMaterial(RT_ResourceHandle mesh, uint16_t material_override, const RT_Mat4* transform, const RT_Mat4* prev_transform, uint32_t render_mask);
 // NOTE(daniel): I'd prefer it if these functions were not part of the "core" renderer, but instead the core call was just
 // RT_RenderQuad or something and then that can just be used to draw a billboard. But drawing a billboard requires knowledge
 // of the camera, and right now the camera isn't that well organized, so meh. Imma figure out the billboards in RenderBackend.cpp
 // first.
-RT_API void RT_RaytraceBillboard(uint16_t material_index, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos);
-RT_API void RT_RaytraceBillboardColored(uint16_t material_index, RT_Vec3 color, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos);
-RT_API void RT_RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 top_p, float width);
+RT_API void RT_RaytraceBillboard(uint16_t material_index, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos, uint32_t render_mask);
+RT_API void RT_RaytraceBillboardColored(uint16_t material_index, RT_Vec3 color, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos, uint32_t render_mask);
+RT_API void RT_RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 top_p, float width, uint32_t render_mask);
 RT_API void RT_RaytraceRender();
 RT_API void RT_RaytraceSubmitLights(size_t light_count, const RT_Light *lights); 
 static inline void RT_RaytraceSubmitLight(RT_Light light)

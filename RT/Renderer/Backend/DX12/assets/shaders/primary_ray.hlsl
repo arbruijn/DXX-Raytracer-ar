@@ -41,7 +41,7 @@ void PrimaryRaygen()
     // Trace the primary ray
     RayDesc ray = GetRayDesc(dispatch_idx, dispatch_dim);
     PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-    TracePrimaryRay(ray, ray_payload, dispatch_idx);
+    TracePrimaryRay(ray, ray_payload, dispatch_idx, ~2);
 
     // Set up geometry output from primary ray trace and set non-zero defaults where necessary
     HitGeometry geo = (HitGeometry)0;

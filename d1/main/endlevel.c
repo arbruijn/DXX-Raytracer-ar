@@ -904,7 +904,7 @@ void render_external_scene(fix eye_offset)
 				RT_Vec3 top = RT_Vec3Fromvms_vector(&top_pnt.p3_vec);
 				RT_Vec3 mid = RT_Vec3Muls(RT_Vec3Add(bot, top), 0.5f);
 				//RT_RaytraceRod(RT_MATERIAL_SATELLITE, bot, top, f2fl(SATELLITE_WIDTH));
-				RT_RaytraceBillboard(RT_MATERIAL_SATELLITE, (RT_Vec2){ f2fl(SATELLITE_WIDTH), f2fl(SATELLITE_HEIGHT) }, mid, mid);
+				RT_RaytraceBillboard(RT_MATERIAL_SATELLITE, (RT_Vec2){ f2fl(SATELLITE_WIDTH), f2fl(SATELLITE_HEIGHT) }, mid, mid, RT_RENDER_MASK_OBJECTS);
 #endif
 				g3_draw_rod_tmap(satellite_bitmap,&p,SATELLITE_WIDTH,&top_pnt,SATELLITE_WIDTH,lrgb);
 				Interpolation_method = save_im;

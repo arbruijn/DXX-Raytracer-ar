@@ -208,7 +208,8 @@ void render_terrain(vms_vector *org_point,int org_2dx,int org_2dy)
 	    .prev_transform = &id,
 	    .color = 0xFFFFFFFF,
 	    .material_override = 0,
-	    .flags = 0
+	    .flags = 0,
+		.instance_mask = RT_RENDER_MASK_TERRAIN,
 	};
 	RT_RaytraceMeshEx(&params);
 #else

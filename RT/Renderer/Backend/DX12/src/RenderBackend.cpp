@@ -3701,7 +3701,7 @@ void RenderBackend::RaytraceMesh(const RT_RenderMeshParams& params)
 		uint32_t instance_index = g_d3d.tlas_instance_count++;
 
 		D3D12_RAYTRACING_INSTANCE_DESC *instance_desc = frame->instance_descs.As<D3D12_RAYTRACING_INSTANCE_DESC>() + instance_index;
-		instance_desc->InstanceMask = 1;
+		instance_desc->InstanceMask = params.instance_mask;
 		memcpy(instance_desc->Transform, params.transform, sizeof(float)*12);
 		instance_desc->AccelerationStructure = mesh_resource->blas->GetGPUVirtualAddress();
 		instance_desc->InstanceContributionToHitGroupIndex = 0;
@@ -3743,7 +3743,7 @@ void RenderBackend::RaytraceMesh(const RT_RenderMeshParams& params)
 	}
 }
 
-void RenderBackend::RaytraceBillboardColored(uint16_t material_index, RT_Vec3 color, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos)
+void RenderBackend::RaytraceBillboardColored(uint16_t material_index, RT_Vec3 color, RT_Vec2 dim, RT_Vec3 pos, RT_Vec3 prev_pos, uint32_t render_mask)
 {
 	RT_RenderMeshParams params = {};
 	RT_Mat4 transform;
@@ -3771,10 +3771,11 @@ void RenderBackend::RaytraceBillboardColored(uint16_t material_index, RT_Vec3 co
 	params.prev_transform = &prev_transform;
 	params.color = RT_PackRGBA(color4);
 	params.material_override = material_index;
+	params.instance_mask = render_mask;
 	RaytraceMesh(params);
 }
 
-void RenderBackend::RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 top_p, float width)
+void RenderBackend::RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 top_p, float width, uint32_t render_mask)
 {
 	RT_Mat4 transform;
 	{
@@ -3798,6 +3799,7 @@ void RenderBackend::RaytraceRod(uint16_t material_index, RT_Vec3 bot_p, RT_Vec3 
 	params.prev_transform = &transform;
 	params.material_override = material_index;	
 	params.color = 0xFFFFFFFF;
+	params.instance_mask = render_mask;
 
 	RaytraceMesh(params);
 }

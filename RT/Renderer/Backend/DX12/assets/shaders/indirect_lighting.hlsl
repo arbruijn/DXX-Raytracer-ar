@@ -175,8 +175,8 @@ void IndirectLightingRaygen()
 			ray.TMin      = RT_RAY_T_MIN;
 			ray.TMax      = RT_RAY_T_MAX;
 
-			// Trace the primary ray
-			TracePrimaryRay(ray, ray_payload, dispatch_idx);
+			// Trace the primary ray ignoring portals
+			TracePrimaryRay(ray, ray_payload, dispatch_idx, ~2);
 
 			// Set up geometry output from primary ray trace and set non-zero defaults where necessary
 			HitGeometry geo = (HitGeometry)0;
