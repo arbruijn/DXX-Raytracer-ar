@@ -6,6 +6,7 @@ struct OcclusionRayPayload
 	bool visible;
 	float hit_distance;
 	int hit_segment;                           // what level segment (if any) does the hit belong to.  Could look this up with instance and primitive idx's, but simpler to just record it here.
+	int start_segment;
 };
 
 void TraceOcclusionRay(RayDesc ray, inout OcclusionRayPayload payload, uint2 pixel_pos)
