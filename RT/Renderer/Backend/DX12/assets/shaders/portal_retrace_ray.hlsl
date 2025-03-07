@@ -1,3 +1,6 @@
+#ifndef PORTAL_RETRACE_RAY_HLSL
+#define PORTAL_RETRACE_RAY_HLSL
+
 #include "include/common.hlsl"
 
 struct PortalRetraceRayPayload
@@ -82,3 +85,5 @@ void OcclusionMiss(inout OcclusionRayPayload payload)
     payload.visible = true;
 }
 */
+
+#endif /* PORTAL_RETRACE_RAY_HLSL */

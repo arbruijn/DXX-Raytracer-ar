@@ -406,7 +406,8 @@ void RT_RenderLevel(RT_Vec3 player_pos)
 	
 	// render each mesh on the proper render mask
 	RT_RaytraceMesh(g_level_resource, &mat, &mat, RT_RENDER_MASK_LEVELGEOMETRY);
-	RT_RaytraceMesh(g_level_with_portals_resource, &mat, &mat, RT_RENDER_MASK_PORTALS);
+	if(RT_GetRetraceRays())
+		RT_RaytraceMesh(g_level_with_portals_resource, &mat, &mat, RT_RENDER_MASK_PORTALS);
 }
 
 void TraverseSegmentsForLights(short seg_num, uint8_t* visit_list, uint8_t* lights_added, int curr_rec_depth, RT_Vec3 curr_seg_entry_pos, float curr_segment_distance) {

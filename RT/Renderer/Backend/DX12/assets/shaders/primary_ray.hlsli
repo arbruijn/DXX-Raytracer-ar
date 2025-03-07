@@ -2,6 +2,7 @@
 #define PRIMARY_RAY_HLSLI
 
 #include "include/common.hlsl"
+#include "portal_retrace_ray.hlsl"
 
 struct PrimaryRayPayload
 {
@@ -9,7 +10,7 @@ struct PrimaryRayPayload
     uint primitive_idx;
     float2 barycentrics;
     float hit_distance;
-    int invalid_primitive_hit;                  // what invalid primitive id was hit (so we can ignore it when we try again)
+    int start_segment;                          // what level segment did the ray start in?
     int hit_segment;                           // what level segment (if any) does the hit belong to.  Could look this up with instance and primitive idx's, but simpler to just record it here.
 };
 
@@ -47,21 +48,75 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 
 				Material hit_material;
 
-				// Check for transparency on hit candidate
-                if (payload.invalid_primitive_hit != primitive_idx) // ignore invalid primitive
+                bool valid_hit = true;
+
+                if (tweak.retrace_rays)  // retrace rays to handle intersecting level segments
                 {
-                    if (!IsHitTransparent(
-                        instance_idx,
-                        primitive_idx,
-                        ray_query.CandidateTriangleBarycentrics(),
-                        pixel_pos,
-                        hit_material
-                    ))
+                   // bool found = false;
+
+                    // first check if the hit triangle is part of the segment we are looking for
+                    if (hit_triangle.segment != -1 && hit_triangle.segment != payload.start_segment)
                     {
-                        ray_query.CommitNonOpaqueTriangleHit();
+                       // if not, setup a retrace ray that starts at the hit location and shoots back to the viewer
+                        float3 newOrigin = ray.Origin + (ray.Direction * hit_distance);
+                        RayDesc retrace_ray;
+                        retrace_ray.Origin = newOrigin;
+                        retrace_ray.Direction = ray.Direction * -1.0;
+                        retrace_ray.TMin = 0.0;
+                        retrace_ray.TMax = hit_distance + 1.0;	// add just a little bit to distance... it helps when the camera is close to a portal surface.
+
+                        // setup retrace to check if it passes through portal that leads to segment hit happened in.
+                        PortalRetraceRayPayload retrace_payload;
+                        retrace_payload.search_segment = hit_triangle.segment;
+                        retrace_payload.found = false;
+                        retrace_payload.hit_distance = RT_RAY_T_MAX;
+                        retrace_payload.next_segment = -1;
+
+                        TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos, false);
+
+                        // retrace did pass through portal that leads to where the hit happened
+                        if (retrace_payload.found)
+                        {
+                            // does that portal lead to where the player ship is?
+                            if (retrace_payload.next_segment != payload.start_segment)
+                            {
+                                // if it does not, do one more retrace
+                                retrace_payload.search_segment = retrace_payload.next_segment;
+                                retrace_payload.found = false;
+                                retrace_payload.hit_distance = RT_RAY_T_MAX;
+                                retrace_payload.next_segment = -1;
+
+                                TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos, false);
+                                if (!retrace_payload.found)
+                                {
+                                    // failed second retrace, not valid hit
+                                    valid_hit = false;
+                                }
+                            }
+                           
+                        }
+                        else
+                        {
+                            valid_hit = false;
+                        }
                     }
-                    
+
                 }
+
+				// Check for transparency on hit candidate
+               
+                if (valid_hit && !IsHitTransparent(
+                    instance_idx,
+                    primitive_idx,
+                    ray_query.CandidateTriangleBarycentrics(),
+                    pixel_pos,
+                    hit_material
+                ))
+                {
+                    ray_query.CommitNonOpaqueTriangleHit();
+                }
+                    
+               
 				break;
 			}
 		}

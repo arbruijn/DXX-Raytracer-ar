@@ -242,89 +242,11 @@ void CalculateDirectLightingAtSurface(in HitGeometry IN, inout DirectLightingOut
 
 				OcclusionRayPayload occlusion_payload;
 				occlusion_payload.visible = false;
-				occlusion_payload.invalid_primitive_hit = -1;
 				occlusion_payload.hit_segment = -1;
-				occlusion_payload.primitive_idx = 0;
-
+				occlusion_payload.start_segment = IN.hit_triangle.segment;
+	
+				TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
 				
-				int count = 0;
-
-				if (tweak.retrace_rays)
-				{
-					bool found = false;
-
-					while (!found && count < 3)
-					{
-						TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
-
-						if (occlusion_payload.visible || occlusion_payload.hit_segment == -1 || occlusion_payload.hit_segment == IN.hit_triangle.segment)
-						{
-							found = true;
-							break;
-						}
-
-						// if not setup a retrace ray that starts at the hit location and shoots back to the viewer
-						float3 newOrigin = occlusion_ray.Origin + (occlusion_ray.Direction * occlusion_payload.hit_distance);
-						RayDesc retrace_ray;
-						retrace_ray.Origin = newOrigin;
-						retrace_ray.Direction = occlusion_ray.Direction * -1.0;
-						retrace_ray.TMin = 0.0;
-						retrace_ray.TMax = occlusion_payload.hit_distance + 1.0;	// add just a little bit to distance, cause it helps when the camera is close to a portal surface
-
-						PortalRetraceRayPayload retrace_payload;
-						retrace_payload.search_segment = occlusion_payload.hit_segment;
-						retrace_payload.found = false;
-						retrace_payload.hit_distance = RT_RAY_T_MAX;
-						retrace_payload.next_segment = -1;
-
-						TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos,false);
-
-						if (retrace_payload.found)
-						{
-							if (retrace_payload.next_segment == IN.hit_triangle.segment)
-							{
-								found = true;
-								break;
-							}
-							else
-							{
-								// do one more retrace to find if the ray went through a portal that lead to the other portal.
-								// two retraces is enough to fix most render glitches
-								retrace_payload.search_segment = retrace_payload.next_segment;
-								retrace_payload.found = false;
-								retrace_payload.hit_distance = RT_RAY_T_MAX;
-								retrace_payload.next_segment = -1;
-
-								TracePortalRetraceRay(retrace_ray, retrace_payload, pixel_pos,false);
-								if (retrace_payload.found)
-								{
-									found = true;
-									break;
-								}
-							}
-						}
-
-						// the occlusion hit surface failed the retrace... try again, setting previous primitive to invalid
-						occlusion_payload.invalid_primitive_hit = occlusion_payload.primitive_idx;
-						occlusion_payload.visible = false;
-						occlusion_payload.hit_segment = -1;
-						occlusion_payload.primitive_idx = 0;
-						occlusion_ray.TMin = occlusion_payload.hit_distance - 0.001; // retry ray just before the previous hit to handle retrying coplanar faces (which can happen with overlapping geo)
-
-						count++;
-					}
-
-					if (!found)
-					{
-						// no valid occlusion object was found.
-						occlusion_payload.visible = true;
-					}
-				}
-				else
-				{
-					TraceOcclusionRay(occlusion_ray, occlusion_payload, pixel_pos);
-				}
-
 				float3 c = occlusion_payload.visible * ndotl * s.e * W;
 
 				float3 brdf_diffuse, brdf_specular;
