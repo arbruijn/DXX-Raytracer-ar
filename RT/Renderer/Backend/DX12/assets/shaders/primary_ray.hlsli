@@ -50,7 +50,7 @@ void TracePrimaryRay(RayDesc ray, inout PrimaryRayPayload payload, uint2 pixel_p
 
                 bool valid_hit = true;
 
-                if (tweak.retrace_rays)  // retrace rays to handle intersecting level segments
+                if (tweak.retrace_rays && payload.start_segment != -1)  // retrace rays to handle intersecting level segments
                 {
                    // bool found = false;
 
