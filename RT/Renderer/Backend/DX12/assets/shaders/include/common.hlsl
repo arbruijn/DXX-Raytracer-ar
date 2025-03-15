@@ -85,6 +85,8 @@ static const float PI = 3.14159265359;
 #define RT_RAY_T_MIN 0.001
 #define RT_RAY_T_MAX 10000
 
+#define RT_NUM_PORTAL_HITS 16
+
 // @Volatile: Must match RT_Triangle in Renderer.h
 struct RT_Triangle
 {
@@ -106,6 +108,14 @@ struct RT_Triangle
 
 	uint color;
 	uint material_edge_index;
+
+	// level geometry
+	bool portal;				// is this triangle a portal to another segment
+	int segment;			// what segment does this triangle belong too (if world geo)
+	int segment_adjacent;	// if this is a portal what segment does it lead to
+
+	// terrain
+	bool terrain;				// is this triangle a terrain triangle
 };
 
 // @Volatile: Must match RT_MaterialFlags in Renderer.h
@@ -130,6 +140,14 @@ struct RT_Light
 	uint     spot_vignette : 8;
 	uint     emission;
 	float3x4 transform;
+};
+
+// Common Structs
+struct PortalHit
+{
+	int segment;
+	int segment_adjacent;
+	float hit_distance;
 };
 
 // ------------------------------------------------------------------
@@ -1030,5 +1048,6 @@ float4 SampleTextureAnisotropic(Texture2D tex, SamplerState samp, float2 tex_gra
 
 	return tex.SampleGrad(samp, uv, tex_gradient1, tex_gradient2);
 }
+
 
 #endif /* COMMON_HLSL */
