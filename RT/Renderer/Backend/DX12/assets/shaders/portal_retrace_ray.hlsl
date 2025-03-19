@@ -23,7 +23,7 @@ void TracePortalRetraceRay(RayDesc ray, inout PortalRetraceRayPayload payload, u
 	uint mask = 2;
 	if (use_level_geo)
 	{
-		mask = ~0;
+		mask = 3;
 	}
 
     RayQuery<RAY_FLAG_CULL_BACK_FACING_TRIANGLES> ray_query;
