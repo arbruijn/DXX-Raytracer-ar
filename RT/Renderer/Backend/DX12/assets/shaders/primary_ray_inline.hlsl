@@ -14,8 +14,8 @@ void PrimaryRayInline(COMPUTE_ARGS)
 	// Trace the primary ray
 	RayDesc ray = GetRayDesc(pixel_pos, g_global_cb.render_dim);
 	PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-	ray_payload.primitive_idx = 0;
-	ray_payload.instance_idx = 0;
+	ray_payload.primitive_idx = ~0;
+	ray_payload.instance_idx = ~0;
 	ray_payload.hit_segment = -1;
 	ray_payload.start_segment = g_global_cb.ray_segment;
 
