@@ -14,8 +14,8 @@ void PrimaryRayInline(COMPUTE_ARGS)
 	// Trace the primary ray
 	RayDesc ray = GetRayDesc(pixel_pos, g_global_cb.render_dim);
 	PrimaryRayPayload ray_payload = (PrimaryRayPayload)0;
-	ray_payload.primitive_idx = 0;
-	ray_payload.instance_idx = 0;
+	ray_payload.primitive_idx = ~0;
+	ray_payload.instance_idx = ~0;
 	ray_payload.hit_segment = -1;
 	ray_payload.start_segment = g_global_cb.ray_segment;
 
@@ -29,7 +29,7 @@ void PrimaryRayInline(COMPUTE_ARGS)
 		// do external rendering here. (end of exit sequence)
 
 		// first do a pretrace ray to see if the ray goes through the exit segment.  if it does... render the mine, if not render the terrain
-		RayDesc pretrace_ray = ray;		// same ray settings as the primary ray
+		RayDesc pretrace_ray = GetRayDesc(pixel_pos, g_global_cb.render_dim);  // make a pretrace ray with the same settings as the primary ray
 
 		PortalRetraceRayPayload pretrace_payload;
 		pretrace_payload.search_segment = g_global_cb.ray_segment;	// .ray_segment is set to the exit portal when rendering is external
